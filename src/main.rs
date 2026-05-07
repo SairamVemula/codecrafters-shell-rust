@@ -19,7 +19,8 @@ fn main() {
             }
             _ => {
                 if input.starts_with("echo ") {
-                    println!("{}", &input[5..]);
+                    let args: Vec<&str> = input.trim()[5..].split_whitespace().collect();
+                    cmd::echo::handle_echo(args);
                 } else {
                     println!("{}: command not found", input.trim())
                 }
