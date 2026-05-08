@@ -29,6 +29,9 @@ fn main() {
                 cmd::Type::Unknown(cmd) => println!("{}: not found", cmd),
                 cmd::Type::BuiltIn(cmd) => println!("{} is a shell builtin", cmd),
             },
+            Command::Pwd(args) => {
+                cmd::pwd::handle_pwd(args);
+            },
             Command::Unknown(cmd, args) => {
                 cmd::handle_run(cmd, args);
             }

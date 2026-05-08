@@ -3,11 +3,13 @@ use std::{env, process};
 use crate::utils;
 
 pub mod echo;
+pub mod pwd;
 
 pub enum Command<'a> {
     Exit,
     Echo(Vec<&'a str>),
     Type(Vec<&'a str>),
+    Pwd(Vec<&'a str>),
     Unknown(&'a str, Vec<&'a str>),
 }
 
@@ -21,6 +23,8 @@ impl<'a> Command<'a> {
             "echo" => Command::Echo(args[1..].to_vec()),
 
             "type" => Command::Type(args[1..].to_vec()),
+
+            "pwd" => Command::Pwd(args[1..].to_vec()),
 
             _ => Command::Unknown(args[0], args[1..].to_vec()),
         }
