@@ -27,7 +27,7 @@ fn main() {
             Command::Type(args) => match cmd::handle_type(args) {
                 cmd::Type::Exe(cmd, path) => println!("{} is {}", cmd, path),
                 cmd::Type::Unknown(cmd) => println!("{}: not found", cmd),
-                cmd::Type::BuiltIn(cmd) => todo!("{} is a shell builtin", cmd),
+                cmd::Type::BuiltIn(cmd) => println!("{} is a shell builtin", cmd),
             },
             Command::Unknown(cmd, args) => {
                 cmd::handle_run(cmd, args);
