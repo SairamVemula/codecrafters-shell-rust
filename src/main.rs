@@ -32,6 +32,9 @@ fn main() {
             Command::Pwd(args) => {
                 cmd::pwd::handle_pwd(args);
             },
+            Command::Cd(args) => {
+                cmd::cd::handle_cd(args);
+            },
             Command::Unknown(cmd, args) => {
                 cmd::handle_run(cmd, args);
             }

@@ -4,12 +4,14 @@ use crate::utils;
 
 pub mod echo;
 pub mod pwd;
+pub mod cd;
 
 pub enum Command<'a> {
     Exit,
     Echo(Vec<&'a str>),
     Type(Vec<&'a str>),
     Pwd(Vec<&'a str>),
+    Cd(Vec<&'a str>),
     Unknown(&'a str, Vec<&'a str>),
 }
 
@@ -25,6 +27,8 @@ impl<'a> Command<'a> {
             "type" => Command::Type(args[1..].to_vec()),
 
             "pwd" => Command::Pwd(args[1..].to_vec()),
+
+            "cd" => Command::Cd(args[1..].to_vec()),
 
             _ => Command::Unknown(args[0], args[1..].to_vec()),
         }
