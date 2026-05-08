@@ -44,10 +44,10 @@ pub fn handle_type(args: Vec<&'_ str>) -> Type<'_> {
                 }
             }
             // format!("{}: not found", args[0])
-            return Type::BuiltIn(args[0]);
+            return Type::Unknown(args[0]);
         }
         // _ => format!("{} is a shell builtin", args[0]),
-        _ => Type::Unknown(args[0]),
+        _ => Type::BuiltIn(args[0]),
     }
 }
 
