@@ -1,9 +1,9 @@
-#[allow(unused_imports)]
 use std::io::{self, Write};
 
 use crate::cmd::Command;
 
 mod cmd;
+mod utils;
 
 fn main() {
     // TODO: Uncomment the code below to pass the first stage
@@ -24,10 +24,9 @@ fn main() {
             Command::Echo(args) => {
                 cmd::echo::handle_echo(args);
             }
-            Command::Type(args) => match Command::from_raw(args[0]) {
-                Command::Unkown => println!("{}: not found", args[0]),
-                _ => println!("{} is a shell builtin", args[0]),
-            },
+            Command::Type(args) => {
+                println!("{}", cmd::handle_type(args));
+            }
             _ => {
                 println!("{}: command not found", input.trim())
             }
