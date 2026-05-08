@@ -1,6 +1,8 @@
 #[allow(unused_imports)]
 use std::io::{self, Write};
 
+use crate::cmd::Command;
+
 mod cmd;
 
 fn main() {
@@ -13,17 +15,21 @@ fn main() {
 
         io::stdin().read_line(&mut input).unwrap();
 
-        match input.trim() {
-            "exit" => {
+        let command = Command::from_raw(&input);
+
+        match command {
+            Command::Exit => {
                 break;
             }
+            Command::Echo(args) => {
+                cmd::echo::handle_echo(args);
+            }
+            Command::Type(args) => match Command::from_raw(args[0]) {
+                Command::Unkown => println!("{}: not found", args[0]),
+                _ => println!("{} is a shell builtin", args[0]),
+            },
             _ => {
-                if input.starts_with("echo ") {
-                    let args: Vec<&str> = input.trim()[5..].split_whitespace().collect();
-                    cmd::echo::handle_echo(args);
-                } else {
-                    println!("{}: command not found", input.trim())
-                }
+                println!("{}: command not found", input.trim())
             }
         }
     }
