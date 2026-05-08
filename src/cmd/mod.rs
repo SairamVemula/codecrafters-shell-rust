@@ -1,4 +1,4 @@
-use std::{env};
+use std::{env, process};
 
 use crate::utils;
 
@@ -8,7 +8,7 @@ pub enum Command<'a> {
     Exit,
     Echo(Vec<&'a str>),
     Type(Vec<&'a str>),
-    Unkown,
+    Unknown(&'a str, Vec<&'a str>),
 }
 
 impl<'a> Command<'a> {
@@ -22,23 +22,48 @@ impl<'a> Command<'a> {
 
             "type" => Command::Type(args[1..].to_vec()),
 
-            _ => Command::Unkown,
+            _ => Command::Unknown(args[0], args[1..].to_vec()),
         }
     }
 }
 
-pub fn handle_type(args: Vec<&str>) -> String {
+pub enum Type<'a> {
+    Exe(&'a str, String),
+    BuiltIn(&'a str),
+    Unknown(&'a str),
+}
+pub fn handle_type(args: Vec<&'_ str>) -> Type<'_> {
     let path = env::var("PATH").unwrap();
     match Command::from_raw(args[0]) {
-        Command::Unkown => {
+        Command::Unknown(_, _) => {
             for dir in env::split_paths(&path) {
                 let path = dir.join(args[0]);
                 if utils::is_executable(&path) {
-                    return format!("{} is {}", args[0], path.display());
+                    // return format!("{} is {}", args[0], path.display());
+                    return Type::Exe(args[0], path.display().to_string());
                 }
             }
-            format!("{}: not found", args[0])
+            // format!("{}: not found", args[0])
+            return Type::BuiltIn(args[0]);
         }
-        _ => format!("{} is a shell builtin", args[0]),
+        // _ => format!("{} is a shell builtin", args[0]),
+        _ => Type::Unknown(args[0]),
+    }
+}
+
+pub fn handle_run(cmd: &str, args: Vec<&str>) {
+    let program = process::Command::new(cmd)
+        .args(args)
+        .stdin(process::Stdio::inherit())
+        .stdout(process::Stdio::inherit())
+        .spawn();
+
+    match program {
+        Ok(mut program) => {
+            let _ = program.wait();
+        }
+        Err(_) => {
+            println!("{cmd}: command not found");
+        }
     }
 }

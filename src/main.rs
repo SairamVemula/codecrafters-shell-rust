@@ -24,11 +24,13 @@ fn main() {
             Command::Echo(args) => {
                 cmd::echo::handle_echo(args);
             }
-            Command::Type(args) => {
-                println!("{}", cmd::handle_type(args));
-            }
-            _ => {
-                println!("{}: command not found", input.trim())
+            Command::Type(args) => match cmd::handle_type(args) {
+                cmd::Type::Exe(cmd, path) => println!("{} is {}", cmd, path),
+                cmd::Type::Unknown(cmd) => println!("{}: not found", cmd),
+                cmd::Type::BuiltIn(cmd) => todo!("{} is a shell builtin", cmd),
+            },
+            Command::Unknown(cmd, args) => {
+                cmd::handle_run(cmd, args);
             }
         }
     }
