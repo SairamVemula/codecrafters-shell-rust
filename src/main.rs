@@ -62,8 +62,11 @@ fn main() {
 
         match output_file {
             Some(mut file) => match result {
-                Ok(s) | Err(s) => {
+                Ok(s)  => {
                     write!(file, "{}", s).ok();
+                }
+                Err(s) => {
+                    write!(io::stderr(), "{}", s).ok();
                 }
             },
 
