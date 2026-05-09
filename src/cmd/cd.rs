@@ -1,7 +1,4 @@
-use std::{
-    env,
-    path::{ PathBuf},
-};
+use std::{env, path::PathBuf};
 
 pub fn handle_cd(args: Vec<String>) {
     let path = args.get(0).map_or("~", |v| v);

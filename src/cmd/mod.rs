@@ -1,6 +1,6 @@
 use std::{env, process};
 
-use crate::utils::{self, parse_args};
+use crate::utils;
 
 pub mod cd;
 pub mod echo;
@@ -17,7 +17,7 @@ pub enum Command {
 
 impl<'a> Command {
     pub fn from_raw(input: &String) -> Command {
-        let args = parse_args(input.trim());
+        let args = utils::parse_args(input.trim());
 
         match args[0].as_str() {
             "exit" => Command::Exit,

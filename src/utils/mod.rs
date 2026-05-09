@@ -44,6 +44,11 @@ pub fn parse_args(input: &str) -> Vec<String> {
                 '"' => {
                     state = ArgParserState::DoubleQuote;
                 }
+                '\\' => {
+                    if let Some(next) = chars.next() {
+                        current.push(next);
+                    }
+                }
                 c if c.is_whitespace() => {
                     if !current.is_empty() {
                         args.push(std::mem::take(&mut current));
