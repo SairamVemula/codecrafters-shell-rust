@@ -87,9 +87,17 @@ fn main() {
             None => match result {
                 Ok(s) => {
                     write!(io::stdout(), "{}", s).ok();
+
+                    if !s.ends_with('\n') {
+                        writeln!(io::stdout()).ok();
+                    }
                 }
                 Err(s) => {
                     write!(io::stderr(), "{}", s).ok();
+
+                    if !s.ends_with('\n') {
+                        writeln!(io::stderr()).ok();
+                    }
                 }
             },
         }
