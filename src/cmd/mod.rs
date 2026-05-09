@@ -17,7 +17,6 @@ pub enum Command {
 
 impl<'a> Command {
     pub fn from_raw(input: &String) -> Command {
-
         match input.as_str() {
             "exit" => Command::Exit,
 
@@ -59,20 +58,17 @@ pub fn handle_type(args: Vec<String>) -> Type {
 }
 
 pub fn handle_run(cmd: String, args: Vec<String>) -> Result<String, String> {
-    let program = process::Command::new(&cmd)
-        .args(args)
-        .stdin(process::Stdio::inherit())
-        .stdout(process::Stdio::inherit())
-        .spawn();
+    let output = process::Command::new(&cmd).args(args).output();
 
-    match program {
-        Ok(mut program) => {
-            let _ = program.wait();
+    match output {
+        Ok(output) => {
+            if output.status.success() {
+                Ok(String::from_utf8_lossy(&output.stdout).to_string())
+            } else {
+                Err(String::from_utf8_lossy(&output.stderr).to_string())
+            }
         }
-        Err(_) => {
-            return Err(format!("{}: command not found", cmd));
-        }
+
+        Err(_) => Err(format!("{}: command not found", cmd)),
     }
-
-    Ok("".to_string())
 }
