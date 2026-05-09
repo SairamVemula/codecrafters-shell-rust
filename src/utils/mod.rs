@@ -62,19 +62,7 @@ pub fn parse_args(input: &str) -> Vec<String> {
                 '\'' => {
                     state = ArgParserState::Normal;
                 }
-                '\\' => {
-                    if let Some(next) = chars.next() {
-                        match next {
-                            '\'' | '\\' => {
-                                current.push(next);
-                            }
-                            other => {
-                                current.push(ch);
-                                current.push(other);
-                            }
-                        }
-                    }
-                }
+
                 _ => {
                     current.push(ch);
                 }
