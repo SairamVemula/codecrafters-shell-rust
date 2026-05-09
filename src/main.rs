@@ -27,21 +27,20 @@ fn main() {
 
         let mut args = parsed[1..].to_vec();
 
-        let output_file =
-            if let Some(pos) = args.iter().position(|t| t == ">" || t == "1>") {
-                if pos + 1 >= args.len() {
-                    eprintln!("No output file specified");
-                    continue;
-                }
+        let output_file = if let Some(pos) = args.iter().position(|t| t == ">" || t == "1>") {
+            if pos + 1 >= args.len() {
+                eprintln!("No output file specified");
+                continue;
+            }
 
-                let filename = args[pos + 1].clone();
+            let filename = args[pos + 1].clone();
 
-                args.drain(pos..=pos + 1);
+            args.drain(pos..=pos + 1);
 
-                Some(File::create(filename).expect("Failed to create file"))
-            } else {
-                None
-            };
+            Some(File::create(filename).expect("Failed to create file"))
+        } else {
+            None
+        };
 
         let result = match command {
             Command::Exit => {
@@ -51,9 +50,7 @@ fn main() {
             Command::Type => match cmd::handle_type(args) {
                 cmd::Type::Exe(cmd, path) => Ok(format!("{} is {}", cmd, path)),
                 cmd::Type::Unknown(cmd) => Err(format!("{}: not found", cmd)),
-                cmd::Type::BuiltIn(cmd) => {
-                    Ok(format!("{} is a shell builtin", cmd))
-                }
+                cmd::Type::BuiltIn(cmd) => Ok(format!("{} is a shell builtin", cmd)),
             },
             Command::Pwd => cmd::pwd::handle_pwd(args),
             Command::Cd => cmd::cd::handle_cd(args),
@@ -62,20 +59,27 @@ fn main() {
 
         match output_file {
             Some(mut file) => match result {
-                Ok(s)  => {
+                Ok(s) => {
                     write!(file, "{}", s).ok();
                 }
                 Err(s) => {
                     write!(io::stderr(), "{}", s).ok();
                 }
             },
-
             None => match result {
                 Ok(s) => {
                     write!(io::stdout(), "{}", s).ok();
+
+                    if !s.ends_with('\n') {
+                        writeln!(io::stdout()).ok();
+                    }
                 }
                 Err(s) => {
                     write!(io::stderr(), "{}", s).ok();
+
+                    if !s.ends_with('\n') {
+                        writeln!(io::stderr()).ok();
+                    }
                 }
             },
         }
