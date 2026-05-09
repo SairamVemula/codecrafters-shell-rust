@@ -19,3 +19,88 @@ pub fn is_executable(path: &path::Path) -> bool {
         false
     }
 }
+
+#[derive(Debug, Clone, Copy)]
+enum ArgParserState {
+    Normal,
+    SingleQuote,
+    DoubleQuote,
+}
+
+pub fn parse_args(input: &str) -> Vec<String> {
+    let mut args = vec![];
+    let mut current = String::new();
+
+    let mut chars = input.chars().peekable();
+
+    let mut state = ArgParserState::Normal;
+
+    while let Some(ch) = chars.next() {
+        match state {
+            ArgParserState::Normal => match ch {
+                '\'' => {
+                    state = ArgParserState::SingleQuote;
+                }
+                '"' => {
+                    state = ArgParserState::DoubleQuote;
+                }
+                c if c.is_whitespace() => {
+                    if !current.is_empty() {
+                        args.push(std::mem::take(&mut current));
+                    }
+                }
+                _ => {
+                    current.push(ch);
+                }
+            },
+            ArgParserState::SingleQuote => match ch {
+                '\'' => {
+                    state = ArgParserState::Normal;
+                }
+                '\\' => {
+                    if let Some(next) = chars.next() {
+                        match next {
+                            '\'' | '\\' => {
+                                current.push(next);
+                            }
+                            other => {
+                                current.push(ch);
+                                current.push(other);
+                            }
+                        }
+                    }
+                }
+                _ => {
+                    current.push(ch);
+                }
+            },
+            ArgParserState::DoubleQuote => match ch {
+                '"' => {
+                    state = ArgParserState::Normal;
+                }
+                '\\' => {
+                    if let Some(next) = chars.next() {
+                        match next {
+                            '"' | '\\' => {
+                                current.push(next);
+                            }
+                            other => {
+                                current.push(ch);
+                                current.push(other);
+                            }
+                        }
+                    }
+                }
+                _ => {
+                    current.push(ch);
+                }
+            },
+        }
+    }
+
+    if !current.is_empty() {
+        args.push(current);
+    }
+
+    args
+}

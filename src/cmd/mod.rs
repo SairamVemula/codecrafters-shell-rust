@@ -1,25 +1,25 @@
 use std::{env, process};
 
-use crate::utils;
+use crate::utils::{self, parse_args};
 
+pub mod cd;
 pub mod echo;
 pub mod pwd;
-pub mod cd;
 
-pub enum Command<'a> {
+pub enum Command {
     Exit,
-    Echo(Vec<&'a str>),
-    Type(Vec<&'a str>),
-    Pwd(Vec<&'a str>),
-    Cd(Vec<&'a str>),
-    Unknown(&'a str, Vec<&'a str>),
+    Echo(Vec<String>),
+    Type(Vec<String>),
+    Pwd(Vec<String>),
+    Cd(Vec<String>),
+    Unknown(String, Vec<String>),
 }
 
-impl<'a> Command<'a> {
-    pub fn from_raw(input: &'a str) -> Command<'a> {
-        let args: Vec<&'a str> = input.trim().split_whitespace().collect();
+impl<'a> Command {
+    pub fn from_raw(input: &String) -> Command {
+        let args = parse_args(input.trim());
 
-        match args[0] {
+        match args[0].as_str() {
             "exit" => Command::Exit,
 
             "echo" => Command::Echo(args[1..].to_vec()),
@@ -30,37 +30,37 @@ impl<'a> Command<'a> {
 
             "cd" => Command::Cd(args[1..].to_vec()),
 
-            _ => Command::Unknown(args[0], args[1..].to_vec()),
+            _ => Command::Unknown(args[0].clone(), args[1..].to_vec()),
         }
     }
 }
 
-pub enum Type<'a> {
-    Exe(&'a str, String),
-    BuiltIn(&'a str),
-    Unknown(&'a str),
+pub enum Type {
+    Exe(String, String),
+    BuiltIn(String),
+    Unknown(String),
 }
-pub fn handle_type(args: Vec<&'_ str>) -> Type<'_> {
+pub fn handle_type(args: Vec<String>) -> Type {
     let path = env::var("PATH").unwrap();
-    match Command::from_raw(args[0]) {
+    match Command::from_raw(&args[0]) {
         Command::Unknown(_, _) => {
             for dir in env::split_paths(&path) {
-                let path = dir.join(args[0]);
+                let path = dir.join(args[0].clone());
                 if utils::is_executable(&path) {
                     // return format!("{} is {}", args[0], path.display());
-                    return Type::Exe(args[0], path.display().to_string());
+                    return Type::Exe(args[0].clone(), path.display().to_string());
                 }
             }
             // format!("{}: not found", args[0])
-            return Type::Unknown(args[0]);
+            return Type::Unknown(args[0].clone());
         }
         // _ => format!("{} is a shell builtin", args[0]),
-        _ => Type::BuiltIn(args[0]),
+        _ => Type::BuiltIn(args[0].clone()),
     }
 }
 
-pub fn handle_run(cmd: &str, args: Vec<&str>) {
-    let program = process::Command::new(cmd)
+pub fn handle_run(cmd: String, args: Vec<String>) {
+    let program = process::Command::new(&cmd)
         .args(args)
         .stdin(process::Stdio::inherit())
         .stdout(process::Stdio::inherit())
@@ -71,7 +71,7 @@ pub fn handle_run(cmd: &str, args: Vec<&str>) {
             let _ = program.wait();
         }
         Err(_) => {
-            println!("{cmd}: command not found");
+            println!("{}: command not found", cmd);
         }
     }
 }

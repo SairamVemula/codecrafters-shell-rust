@@ -3,8 +3,8 @@ use std::{
     path::{ PathBuf},
 };
 
-pub fn handle_cd(args: Vec<&str>) {
-    let path = args.get(0).unwrap_or(&"~");
+pub fn handle_cd(args: Vec<String>) {
+    let path = args.get(0).map_or("~", |v| v);
 
     let expanded = expand_path(path);
 
