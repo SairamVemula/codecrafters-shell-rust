@@ -69,10 +69,10 @@ fn main() {
 
             None => match result {
                 Ok(s) => {
-                    write!(io::stdout(), "{}", s).ok();
+                    writeln!(io::stdout(), "{}", s).ok();
                 }
                 Err(s) => {
-                    write!(io::stderr(), "{}", s).ok();
+                    writeln!(io::stderr(), "{}", s).ok();
                 }
             },
         }
