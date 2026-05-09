@@ -63,16 +63,16 @@ fn main() {
         match output_file {
             Some(mut file) => match result {
                 Ok(s) | Err(s) => {
-                    writeln!(file, "{}", s).ok();
+                    write!(file, "{}", s).ok();
                 }
             },
 
             None => match result {
                 Ok(s) => {
-                    writeln!(io::stdout(), "{}", s).ok();
+                    write!(io::stdout(), "{}", s).ok();
                 }
                 Err(s) => {
-                    writeln!(io::stderr(), "{}", s).ok();
+                    write!(io::stderr(), "{}", s).ok();
                 }
             },
         }
