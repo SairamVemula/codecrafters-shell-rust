@@ -8,29 +8,28 @@ pub mod pwd;
 
 pub enum Command {
     Exit,
-    Echo(Vec<String>),
-    Type(Vec<String>),
-    Pwd(Vec<String>),
-    Cd(Vec<String>),
-    Unknown(String, Vec<String>),
+    Echo,
+    Type,
+    Pwd,
+    Cd,
+    Unknown,
 }
 
 impl<'a> Command {
     pub fn from_raw(input: &String) -> Command {
-        let args = utils::parse_args(input.trim());
 
-        match args[0].as_str() {
+        match input.as_str() {
             "exit" => Command::Exit,
 
-            "echo" => Command::Echo(args[1..].to_vec()),
+            "echo" => Command::Echo,
 
-            "type" => Command::Type(args[1..].to_vec()),
+            "type" => Command::Type,
 
-            "pwd" => Command::Pwd(args[1..].to_vec()),
+            "pwd" => Command::Pwd,
 
-            "cd" => Command::Cd(args[1..].to_vec()),
+            "cd" => Command::Cd,
 
-            _ => Command::Unknown(args[0].clone(), args[1..].to_vec()),
+            _ => Command::Unknown,
         }
     }
 }
@@ -43,7 +42,7 @@ pub enum Type {
 pub fn handle_type(args: Vec<String>) -> Type {
     let path = env::var("PATH").unwrap();
     match Command::from_raw(&args[0]) {
-        Command::Unknown(_, _) => {
+        Command::Unknown => {
             for dir in env::split_paths(&path) {
                 let path = dir.join(args[0].clone());
                 if utils::is_executable(&path) {
@@ -59,7 +58,7 @@ pub fn handle_type(args: Vec<String>) -> Type {
     }
 }
 
-pub fn handle_run(cmd: String, args: Vec<String>) {
+pub fn handle_run(cmd: String, args: Vec<String>) -> Result<String, String> {
     let program = process::Command::new(&cmd)
         .args(args)
         .stdin(process::Stdio::inherit())
@@ -71,7 +70,9 @@ pub fn handle_run(cmd: String, args: Vec<String>) {
             let _ = program.wait();
         }
         Err(_) => {
-            println!("{}: command not found", cmd);
+            return Err(format!("{}: command not found", cmd));
         }
     }
+
+    Ok("".to_string())
 }

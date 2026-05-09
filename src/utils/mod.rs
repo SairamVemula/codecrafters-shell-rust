@@ -20,6 +20,7 @@ pub fn is_executable(path: &path::Path) -> bool {
     }
 }
 
+
 #[derive(Debug, Clone, Copy)]
 enum ArgParserState {
     Normal,

@@ -1,4 +1,7 @@
-use std::io::{self, Write};
+use std::{
+    fs::File,
+    io::{self, Write},
+};
 
 use crate::cmd::Command;
 
@@ -6,38 +9,72 @@ mod cmd;
 mod utils;
 
 fn main() {
-    // TODO: Uncomment the code below to pass the first stage
     loop {
         print!("$ ");
         io::stdout().flush().unwrap();
 
         let mut input = String::new();
-
         io::stdin().read_line(&mut input).unwrap();
 
-        let command = Command::from_raw(&input);
+        let parsed = utils::parse_args(input.trim());
 
-        match command {
+        if parsed.is_empty() {
+            continue;
+        }
+
+        let cmd = parsed[0].clone();
+        let command = Command::from_raw(&cmd);
+
+        let mut args = parsed[1..].to_vec();
+
+        let output_file =
+            if let Some(pos) = args.iter().position(|t| t == ">" || t == "1>") {
+                if pos + 1 >= args.len() {
+                    eprintln!("No output file specified");
+                    continue;
+                }
+
+                let filename = args[pos + 1].clone();
+
+                args.drain(pos..=pos + 1);
+
+                Some(File::create(filename).expect("Failed to create file"))
+            } else {
+                None
+            };
+
+        let result = match command {
             Command::Exit => {
                 break;
             }
-            Command::Echo(args) => {
-                cmd::echo::handle_echo(args);
-            }
-            Command::Type(args) => match cmd::handle_type(args) {
-                cmd::Type::Exe(cmd, path) => println!("{} is {}", cmd, path),
-                cmd::Type::Unknown(cmd) => println!("{}: not found", cmd),
-                cmd::Type::BuiltIn(cmd) => println!("{} is a shell builtin", cmd),
+            Command::Echo => cmd::echo::handle_echo(args),
+            Command::Type => match cmd::handle_type(args) {
+                cmd::Type::Exe(cmd, path) => Ok(format!("{} is {}", cmd, path)),
+                cmd::Type::Unknown(cmd) => Err(format!("{}: not found", cmd)),
+                cmd::Type::BuiltIn(cmd) => {
+                    Ok(format!("{} is a shell builtin", cmd))
+                }
             },
-            Command::Pwd(args) => {
-                cmd::pwd::handle_pwd(args);
-            }
-            Command::Cd(args) => {
-                cmd::cd::handle_cd(args);
-            }
-            Command::Unknown(cmd, args) => {
-                cmd::handle_run(cmd, args);
-            }
+            Command::Pwd => cmd::pwd::handle_pwd(args),
+            Command::Cd => cmd::cd::handle_cd(args),
+            Command::Unknown => cmd::handle_run(cmd.clone(), args),
+        };
+
+        match output_file {
+            Some(mut file) => match result {
+                Ok(s) | Err(s) => {
+                    writeln!(file, "{}", s).ok();
+                }
+            },
+
+            None => match result {
+                Ok(s) => {
+                    writeln!(io::stdout(), "{}", s).ok();
+                }
+                Err(s) => {
+                    writeln!(io::stderr(), "{}", s).ok();
+                }
+            },
         }
     }
 }

@@ -1,3 +1,3 @@
-pub fn handle_echo(args: Vec<String>) {
-    println!("{}", args.join(" "));
+pub fn handle_echo(args: Vec<String>) -> Result<String, String> {
+    Ok(format!("{}", args.join(" ")))
 }
