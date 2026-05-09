@@ -54,7 +54,25 @@ fn main() {
             },
             Command::Pwd => cmd::pwd::handle_pwd(args),
             Command::Cd => cmd::cd::handle_cd(args),
-            Command::Unknown => cmd::handle_run(cmd.clone(), args),
+            Command::Unknown => {
+                match cmd::handle_run(cmd.clone(), args) {
+                    Ok(out) => {
+                        if let Some(mut file) = output_file {
+                            write!(file, "{}", out.stdout).ok();
+                        } else {
+                            write!(io::stdout(), "{}", out.stdout).ok();
+                        }
+
+                        write!(io::stderr(), "{}", out.stderr).ok();
+                    }
+
+                    Err(s) => {
+                        write!(io::stderr(), "{}", s).ok();
+                    }
+                }
+
+                continue;
+            }
         };
 
         match output_file {
@@ -69,17 +87,9 @@ fn main() {
             None => match result {
                 Ok(s) => {
                     write!(io::stdout(), "{}", s).ok();
-
-                    if !s.ends_with('\n') {
-                        writeln!(io::stdout()).ok();
-                    }
                 }
                 Err(s) => {
                     write!(io::stderr(), "{}", s).ok();
-
-                    if !s.ends_with('\n') {
-                        writeln!(io::stderr()).ok();
-                    }
                 }
             },
         }

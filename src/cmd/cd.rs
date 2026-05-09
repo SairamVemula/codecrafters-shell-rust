@@ -1,12 +1,15 @@
 use std::{env, path::PathBuf};
 
-pub fn handle_cd(args: Vec<String>) ->  Result<String, String> {
+pub fn handle_cd(args: Vec<String>) -> Result<String, String> {
     let path = args.get(0).map_or("~", |v| v);
 
     let expanded = expand_path(path);
 
     if let Err(_) = env::set_current_dir(&expanded) {
-        return Err(format!("cd: {}: No such file or directory", expanded.display()));
+        return Err(format!(
+            "cd: {}: No such file or directory",
+            expanded.display()
+        ));
     }
     Ok("".to_string())
 }

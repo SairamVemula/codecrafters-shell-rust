@@ -1,4 +1,7 @@
-use std::{env, process};
+use std::{
+    env,
+    process,
+};
 
 use crate::utils;
 
@@ -57,17 +60,19 @@ pub fn handle_type(args: Vec<String>) -> Type {
     }
 }
 
-pub fn handle_run(cmd: String, args: Vec<String>) -> Result<String, String> {
+pub struct CmdRunOutput {
+    pub stdout: String,
+    pub stderr: String,
+}
+
+pub fn handle_run(cmd: String, args: Vec<String>) -> Result<CmdRunOutput, String> {
     let output = process::Command::new(&cmd).args(args).output();
 
     match output {
-        Ok(output) => {
-            if output.status.success() {
-                Ok(String::from_utf8_lossy(&output.stdout).to_string())
-            } else {
-                Err(String::from_utf8_lossy(&output.stderr).to_string())
-            }
-        }
+        Ok(output) => Ok(CmdRunOutput {
+            stdout: String::from_utf8_lossy(&output.stdout).to_string(),
+            stderr: String::from_utf8_lossy(&output.stderr).to_string(),
+        }),
 
         Err(_) => Err(format!("{}: command not found", cmd)),
     }
