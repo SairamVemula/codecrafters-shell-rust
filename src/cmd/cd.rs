@@ -1,7 +1,8 @@
 use std::{env, path::PathBuf};
+use crate::cmd::context::Context;
 
-pub fn handle_cd(args: Vec<String>) -> Result<String, String> {
-    let path = args.get(0).map_or("~", |v| v);
+pub fn handle_cd(ctx: &mut Context) -> Result<(), String> {
+    let path = ctx.args.get(0).map_or("~", |v| v);
 
     let expanded = expand_path(path);
 
@@ -11,7 +12,7 @@ pub fn handle_cd(args: Vec<String>) -> Result<String, String> {
             expanded.display()
         ));
     }
-    Ok("".to_string())
+    Ok(())
 }
 
 fn expand_path(input: &str) -> PathBuf {

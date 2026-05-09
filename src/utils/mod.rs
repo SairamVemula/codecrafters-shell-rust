@@ -97,3 +97,43 @@ pub fn parse_args(input: &str) -> Vec<String> {
 
     args
 }
+
+#[derive(Debug, PartialEq)]
+pub enum StdRedirectionType {
+    StdoutWrite,
+    StdoutAppend,
+    StderrWrite,
+    StderrAppend,
+}
+
+#[derive(Debug)]
+pub struct Redirection {
+    pub r_type: StdRedirectionType,
+    pub file: String,
+}
+
+pub fn parse_redirections(args: &mut Vec<String>) -> Vec<Redirection> {
+    let mut redirections = vec![];
+    let mut i = 0;
+    while i < args.len() {
+        let arg = &args[i];
+        let redir_type = match arg.as_str() {
+            ">" | "1>" => Some(StdRedirectionType::StdoutWrite),
+            ">>" | "1>>" => Some(StdRedirectionType::StdoutAppend),
+            "2>" => Some(StdRedirectionType::StderrWrite),
+            "2>>" => Some(StdRedirectionType::StderrAppend),
+            _ => None,
+        };
+
+        if let Some(r_type) = redir_type {
+            if i + 1 < args.len() {
+                let file = args.remove(i + 1);
+                args.remove(i);
+                redirections.push(Redirection { r_type, file });
+                continue;
+            }
+        }
+        i += 1;
+    }
+    redirections
+}

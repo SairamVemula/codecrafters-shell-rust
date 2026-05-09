@@ -1,3 +1,5 @@
-pub fn handle_echo(args: Vec<String>) -> Result<String, String> {
-    Ok(format!("{}\n", args.join(" ")))
+use crate::cmd::context::Context;
+
+pub fn handle_echo(ctx: &mut Context) -> Result<(), String> {
+    ctx.stdout.writeln(&ctx.args.join(" ")).map_err(|e| e.to_string())
 }

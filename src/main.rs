@@ -1,9 +1,9 @@
 use std::{
-    fs::File,
+    fs::OpenOptions,
     io::{self, Write},
 };
 
-use crate::cmd::Command;
+use crate::cmd::context::{Context, OutputDestination};
 
 mod cmd;
 mod utils;
@@ -16,90 +16,43 @@ fn main() {
         let mut input = String::new();
         io::stdin().read_line(&mut input).unwrap();
 
-        let parsed = utils::parse_args(input.trim());
+        let mut parsed = utils::parse_args(input.trim());
 
         if parsed.is_empty() {
             continue;
         }
 
-        let cmd = parsed[0].clone();
-        let command = Command::from_raw(&cmd);
-
-        let mut args = parsed[1..].to_vec();
-
-        let output_file = if let Some(pos) = args.iter().position(|t| t == ">" || t == "1>") {
-            if pos + 1 >= args.len() {
-                eprintln!("No output file specified");
-                continue;
+        let cmd_name = parsed.remove(0);
+        
+        let redirections = utils::parse_redirections(&mut parsed);
+        
+        let mut ctx = Context::new(parsed);
+        
+        for redir in redirections {
+            let file = OpenOptions::new()
+                .create(true)
+                .write(true)
+                .append(matches!(redir.r_type, utils::StdRedirectionType::StdoutAppend | utils::StdRedirectionType::StderrAppend))
+                .truncate(!matches!(redir.r_type, utils::StdRedirectionType::StdoutAppend | utils::StdRedirectionType::StderrAppend))
+                .open(&redir.file)
+                .expect("Failed to open redirection file");
+            
+            match redir.r_type {
+                utils::StdRedirectionType::StdoutWrite | utils::StdRedirectionType::StdoutAppend => {
+                    ctx.stdout = OutputDestination::File(file);
+                }
+                utils::StdRedirectionType::StderrWrite | utils::StdRedirectionType::StderrAppend => {
+                    ctx.stderr = OutputDestination::File(file);
+                }
             }
+        }
 
-            let filename = args[pos + 1].clone();
+        let result = cmd::dispatch(&cmd_name, &mut ctx);
 
-            args.drain(pos..=pos + 1);
-
-            Some(File::create(filename).expect("Failed to create file"))
-        } else {
-            None
-        };
-
-        let result = match command {
-            Command::Exit => {
-                break;
+        if let Err(e) = result {
+            if !e.is_empty() {
+                ctx.stderr.writeln(&e).ok();
             }
-            Command::Echo => cmd::echo::handle_echo(args),
-            Command::Type => match cmd::handle_type(args) {
-                cmd::Type::Exe(cmd, path) => Ok(format!("{} is {}", cmd, path)),
-                cmd::Type::Unknown(cmd) => Err(format!("{}: not found", cmd)),
-                cmd::Type::BuiltIn(cmd) => Ok(format!("{} is a shell builtin", cmd)),
-            },
-            Command::Pwd => cmd::pwd::handle_pwd(args),
-            Command::Cd => cmd::cd::handle_cd(args),
-            Command::Unknown => {
-                match cmd::handle_run(cmd.clone(), args) {
-                    Ok(out) => {
-                        if let Some(mut file) = output_file {
-                            write!(file, "{}", out.stdout).ok();
-                        } else {
-                            write!(io::stdout(), "{}", out.stdout).ok();
-                        }
-
-                        write!(io::stderr(), "{}", out.stderr).ok();
-                    }
-
-                    Err(s) => {
-                        write!(io::stderr(), "{}", s).ok();
-                    }
-                }
-
-                continue;
-            }
-        };
-
-        match output_file {
-            Some(mut file) => match result {
-                Ok(s) => {
-                    write!(file, "{}", s).ok();
-                }
-                Err(s) => {
-                    write!(io::stderr(), "{}", s).ok();
-                }
-            },
-            None => match result {
-                Ok(s) => {
-                    write!(io::stdout(), "{}", s).ok();
-
-                    if !s.ends_with('\n') {
-                        writeln!(io::stdout()).ok();
-                    }
-                }
-                Err(s) => {
-                    write!(io::stderr(), "{}", s).ok();
-
-                    if !s.ends_with('\n') {
-                        writeln!(io::stderr()).ok();
-                    }
-                }
-            },
         }
     }
 }
