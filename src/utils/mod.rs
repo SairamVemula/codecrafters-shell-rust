@@ -183,7 +183,7 @@ pub fn get_user_input(term: Term) -> Result<String> {
                     && let Some(cmd) = longest_comman_prefix_from_btreeset(&possible_cmds, &input)
                 {
                     input.clear();
-                    input.push_str(&format!("{cmd} "));
+                    input.push_str(&format!("{cmd}"));
                     term.clear_line()?;
                     print!("$ {cmd}");
                 } else {
