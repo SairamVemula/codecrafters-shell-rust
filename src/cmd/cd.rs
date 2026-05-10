@@ -1,13 +1,14 @@
+use anyhow::{anyhow, Result};
 use crate::cmd::context::Context;
 use std::{env, path::PathBuf};
 
-pub fn handle_cd(ctx: &mut Context) -> Result<(), String> {
+pub fn handle_cd(ctx: &mut Context) -> Result<()> {
     let path = ctx.args.get(0).map_or("~", |v| v);
 
     let expanded = expand_path(path);
 
     if let Err(_) = env::set_current_dir(&expanded) {
-        return Err(format!(
+        return Err(anyhow!(
             "cd: {}: No such file or directory",
             expanded.display()
         ));

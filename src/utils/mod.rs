@@ -21,7 +21,6 @@ pub fn is_executable(path: &path::Path) -> bool {
 
 #[cfg(unix)]
 pub fn is_executable(path: &path::Path) -> bool {
-    use std::fs;
     use std::os::unix::fs::PermissionsExt;
 
     if let Ok(meta) = fs::metadata(path) {
@@ -119,26 +118,14 @@ pub fn parse_args(input: &str) -> Vec<String> {
         }
     }
 
-    if !current.is_empty() || input.ends_with(" ") {
+    if !current.is_empty() || input.ends_with(' ') {
         args.push(current);
     }
 
     args
 }
 
-#[derive(Debug, PartialEq)]
-pub enum StdRedirectionType {
-    StdoutWrite,
-    StdoutAppend,
-    StderrWrite,
-    StderrAppend,
-}
-
-#[derive(Debug)]
-pub struct Redirection {
-    pub r_type: StdRedirectionType,
-    pub file: String,
-}
+use crate::cmd::context::{Redirection, RedirectionType};
 
 pub fn parse_redirections(args: &mut Vec<String>) -> Vec<Redirection> {
     let mut redirections = vec![];
@@ -146,10 +133,10 @@ pub fn parse_redirections(args: &mut Vec<String>) -> Vec<Redirection> {
     while i < args.len() {
         let arg = &args[i];
         let redir_type = match arg.as_str() {
-            ">" | "1>" => Some(StdRedirectionType::StdoutWrite),
-            ">>" | "1>>" => Some(StdRedirectionType::StdoutAppend),
-            "2>" => Some(StdRedirectionType::StderrWrite),
-            "2>>" => Some(StdRedirectionType::StderrAppend),
+            ">" | "1>" => Some(RedirectionType::StdoutWrite),
+            ">>" | "1>>" => Some(RedirectionType::StdoutAppend),
+            "2>" => Some(RedirectionType::StderrWrite),
+            "2>>" => Some(RedirectionType::StderrAppend),
             _ => None,
         };
 
@@ -172,69 +159,21 @@ pub fn get_user_input(term: Term) -> Result<String> {
     loop {
         let key = term.read_key().context("Reading each key")?;
         match key {
-            console::Key::Unknown => todo!(),
-            console::Key::UnknownEscSeq(_) => todo!(),
-            console::Key::ArrowLeft => todo!(),
-            console::Key::ArrowRight => todo!(),
-            console::Key::ArrowUp => todo!(),
-            console::Key::ArrowDown => todo!(),
             console::Key::Enter => break,
-            console::Key::Escape => todo!(),
             console::Key::Backspace => {
                 input.pop();
                 term.clear_line()?;
                 print!("$ {input}")
             }
-            console::Key::Home => todo!(),
-            console::Key::End => todo!(),
             console::Key::Tab => {
-                let (clear_len, possible_autocompletes) = autocomplete(&input);
-                if possible_autocompletes.len() == 1
-                    && let Some(autocomplete) = possible_autocompletes.first()
-                {
-                    input.clear_chars(clear_len);
-                    input.push_str(&format!("{autocomplete}"));
-                    term.clear_chars(clear_len)?;
-                    print!("{autocomplete}");
-                } else if possible_autocompletes.len() > 1
-                    && let Some(autocomplete) =
-                        longest_comman_prefix_from_btreeset(&possible_autocompletes, &input)
-                {
-                    input.clear_chars(clear_len);
-                    input.push_str(&format!("{autocomplete}"));
-                    term.clear_chars(clear_len)?;
-                    print!("{autocomplete}");
-                } else {
-                    if !bell_rang {
-                        bell_rang = true;
-                        print!("\x07");
-                    } else {
-                        bell_rang = false;
-                        println!();
-                        println!(
-                            "{}",
-                            possible_autocompletes
-                                .into_iter()
-                                .collect::<Vec<String>>()
-                                .join(" ")
-                        );
-                        print!("$ {input}");
-                    }
-                }
+                bell_rang = handle_tab(&mut input, &term, bell_rang)?;
             }
-            console::Key::BackTab => todo!(),
-            console::Key::Alt => todo!(),
-            console::Key::Del => todo!(),
-            console::Key::Shift => {}
-            console::Key::Insert => todo!(),
-            console::Key::PageUp => todo!(),
-            console::Key::PageDown => todo!(),
             console::Key::Char(ch) => {
                 input.push(ch);
                 print!("{ch}");
             }
-            console::Key::CtrlC => todo!(),
-            _ => todo!(),
+            console::Key::CtrlC => std::process::exit(0),
+            _ => {}
         };
         io::stdout().flush()?;
     }
@@ -242,8 +181,40 @@ pub fn get_user_input(term: Term) -> Result<String> {
     Ok(input)
 }
 
-pub fn find_possible_path_to_command(cmd: &String) -> Option<String> {
-    let path = env::var("PATH").unwrap();
+fn handle_tab(input: &mut String, term: &Term, mut bell_rang: bool) -> Result<bool> {
+    let (clear_len, possible_autocompletes) = autocomplete(input);
+    if possible_autocompletes.len() == 1 {
+        if let Some(autocomplete) = possible_autocompletes.first() {
+            input.clear_chars(clear_len);
+            input.push_str(autocomplete);
+            term.clear_chars(clear_len)?;
+            print!("{autocomplete}");
+        }
+    } else if possible_autocompletes.len() > 1 {
+        if let Some(lcp) = longest_common_prefix_from_btreeset(&possible_autocompletes, input) {
+            input.clear_chars(clear_len);
+            input.push_str(&lcp);
+            term.clear_chars(clear_len)?;
+            print!("{lcp}");
+        } else {
+            if !bell_rang {
+                bell_rang = true;
+                print!("\x07");
+            } else {
+                bell_rang = false;
+                println!();
+                println!("{}", possible_autocompletes.iter().cloned().collect::<Vec<_>>().join(" "));
+                print!("$ {input}");
+            }
+        }
+    } else {
+        print!("\x07");
+    }
+    Ok(bell_rang)
+}
+
+pub fn find_possible_path_to_command(cmd: &str) -> Option<String> {
+    let path = env::var("PATH").ok()?;
     for dir in env::split_paths(&path) {
         let base_path = dir.join(cmd);
         if base_path.exists() && is_executable(&base_path) {
@@ -252,21 +223,17 @@ pub fn find_possible_path_to_command(cmd: &String) -> Option<String> {
     }
     None
 }
-pub fn find_posible_path_command(prefix: &str) -> BTreeSet<String> {
+
+pub fn find_possible_path_command(prefix: &str) -> BTreeSet<String> {
     let mut commands = BTreeSet::new();
-    let path = env::var("PATH").unwrap();
+    let Ok(path) = env::var("PATH") else { return commands; };
     for dir in env::split_paths(&path) {
-        let Ok(entries) = fs::read_dir(dir) else {
-            continue;
-        };
-        for entry in entries {
-            let Ok(entry) = entry else {
-                continue;
-            };
+        let Ok(entries) = fs::read_dir(dir) else { continue; };
+        for entry in entries.flatten() {
             let file_name = entry.file_name();
-            if file_name.to_str().is_some_and(|f| f.starts_with(prefix)) {
-                if let Ok(name) = file_name.into_string() {
-                    commands.insert(name);
+            if let Some(s) = file_name.to_str() {
+                if s.starts_with(prefix) {
+                    commands.insert(s.to_string());
                 }
             }
         }
@@ -276,7 +243,7 @@ pub fn find_posible_path_command(prefix: &str) -> BTreeSet<String> {
 
 pub fn find_possible_command(prefix: &str) -> BTreeSet<String> {
     let mut builtin_matches = BuiltInCommand::matches(prefix);
-    let path_cmd_matches = find_posible_path_command(prefix);
+    let path_cmd_matches = find_possible_path_command(prefix);
     builtin_matches.extend(path_cmd_matches);
 
     builtin_matches
@@ -288,9 +255,9 @@ pub fn find_possible_command(prefix: &str) -> BTreeSet<String> {
         .collect()
 }
 
-pub fn longest_comman_prefix_from_btreeset(
+pub fn longest_common_prefix_from_btreeset(
     btree: &BTreeSet<String>,
-    input: &String,
+    input: &str,
 ) -> Option<String> {
     let args = parse_args(input);
     let empty = "".to_string();
@@ -301,19 +268,18 @@ pub fn longest_comman_prefix_from_btreeset(
         .take_while(|s| s.starts_with(prefix))
         .peekable();
 
-    let first = subset.peek().copied();
-    let last = subset.last();
+    let first = subset.peek().copied()?;
+    let last = subset.last()?;
 
-    if let (Some(first), Some(last)) = (first, last) {
-        let lcp: String = first
-            .chars()
-            .zip(last.chars())
-            .take_while(|(f, l)| f == l)
-            .map(|(f, _)| f)
-            .collect();
-        if &lcp != prefix {
-            return Some(lcp);
-        }
+    let lcp: String = first
+        .chars()
+        .zip(last.chars())
+        .take_while(|(f, l)| f == l)
+        .map(|(f, _)| f)
+        .collect();
+
+    if &lcp != prefix {
+        return Some(lcp);
     }
 
     None
@@ -324,14 +290,11 @@ pub fn find_files_or_dirs(partial: &str) -> (usize, BTreeSet<String>) {
         (PathBuf::from(partial), "")
     } else {
         let path = Path::new(partial);
-
         let search = path.file_name().and_then(|s| s.to_str()).unwrap_or("");
-
         let dir = match path.parent() {
             Some(parent) if !parent.as_os_str().is_empty() => parent.to_path_buf(),
             _ => env::current_dir().unwrap(),
         };
-
         (dir, search)
     };
 
@@ -358,7 +321,7 @@ pub fn find_files_or_dirs(partial: &str) -> (usize, BTreeSet<String>) {
 pub fn autocomplete(input: &str) -> (usize, BTreeSet<String>) {
     let args = parse_args(input);
     if args.len() > 1 {
-        return find_files_or_dirs(&args.last().unwrap_or(&"".to_string()));
+        return find_files_or_dirs(args.last().unwrap_or(&"".to_string()));
     }
     (args[0].len(), find_possible_command(&args[0]))
 }

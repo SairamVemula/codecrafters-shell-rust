@@ -1,7 +1,21 @@
 use std::collections::HashMap;
-use std::fs::File;
+use std::fs::{File, OpenOptions};
 use std::io::{self, Write};
 use std::path::PathBuf;
+
+#[derive(Debug, PartialEq)]
+pub enum RedirectionType {
+    StdoutWrite,
+    StdoutAppend,
+    StderrWrite,
+    StderrAppend,
+}
+
+#[derive(Debug)]
+pub struct Redirection {
+    pub r_type: RedirectionType,
+    pub file: String,
+}
 
 pub enum OutputDestination {
     Stdout,
@@ -50,5 +64,27 @@ impl<'a> Context<'a> {
             stderr: OutputDestination::Stderr,
             completions,
         }
+    }
+
+    pub fn apply_redirections(&mut self, redirections: Vec<Redirection>) -> io::Result<()> {
+        for redir in redirections {
+            let append = matches!(redir.r_type, RedirectionType::StdoutAppend | RedirectionType::StderrAppend);
+            let file = OpenOptions::new()
+                .create(true)
+                .write(true)
+                .append(append)
+                .truncate(!append)
+                .open(&redir.file)?;
+
+            match redir.r_type {
+                RedirectionType::StdoutWrite | RedirectionType::StdoutAppend => {
+                    self.stdout = OutputDestination::File(file);
+                }
+                RedirectionType::StderrWrite | RedirectionType::StderrAppend => {
+                    self.stderr = OutputDestination::File(file);
+                }
+            }
+        }
+        Ok(())
     }
 }

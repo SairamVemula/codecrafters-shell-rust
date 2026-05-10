@@ -1,3 +1,4 @@
+use anyhow::{anyhow, Result};
 use std::path::PathBuf;
 
 use crate::cmd::context::Context;
@@ -35,10 +36,10 @@ impl From<&Vec<String>> for Complete {
 }
 
 impl Complete {
-    pub fn handle(ctx: &mut Context) -> Result<(), String> {
+    pub fn handle(ctx: &mut Context) -> Result<()> {
         let complete = Complete::from(&ctx.args);
         
-        let result: Result<String, String> = match complete.flag {
+        let result = match complete.flag {
             CompleteFlag::Print => match ctx.completions.get(&complete.command) {
                 Some(path) => Ok(format!(
                     "complete -C '{}' {}",
@@ -46,7 +47,7 @@ impl Complete {
                     complete.command
                 )),
 
-                None => Err(format!(
+                None => Err(anyhow!(
                     "complete: {}: no completion specification",
                     complete.command
                 )),
@@ -58,22 +59,18 @@ impl Complete {
                     Ok(String::new())
                 }
 
-                None => Err("complete: missing path".to_string()),
+                None => Err(anyhow!("complete: missing path")),
             },
         };
 
         match result {
             Ok(output) => {
                 if !output.is_empty() {
-                    ctx.stdout.writeln(&output).map_err(|e| e.to_string())?;
+                    ctx.stdout.writeln(&output)?;
                 }
-
                 Ok(())
             }
-
-            Err(err) => {
-                Err(err)
-            }
+            Err(err) => Err(err),
         }
     }
 }

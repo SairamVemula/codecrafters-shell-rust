@@ -1,11 +1,11 @@
 use std::{
-    collections::HashMap, fs::OpenOptions, io::{self, Write}
+    collections::HashMap, io::{self, Write}
 };
 
 use console::Term;
 
 use crate::{
-    cmd::context::{Context, OutputDestination},
+    cmd::context::Context,
     utils::get_user_input,
 };
 
@@ -34,41 +34,15 @@ fn main() {
 
         let mut ctx = Context::new(parsed, &mut completions);
 
-        for redir in redirections {
-            let file = OpenOptions::new()
-                .create(true)
-                .write(true)
-                .append(matches!(
-                    redir.r_type,
-                    utils::StdRedirectionType::StdoutAppend
-                        | utils::StdRedirectionType::StderrAppend
-                ))
-                .truncate(!matches!(
-                    redir.r_type,
-                    utils::StdRedirectionType::StdoutAppend
-                        | utils::StdRedirectionType::StderrAppend
-                ))
-                .open(&redir.file)
-                .expect("Failed to open redirection file");
-
-            match redir.r_type {
-                utils::StdRedirectionType::StdoutWrite
-                | utils::StdRedirectionType::StdoutAppend => {
-                    ctx.stdout = OutputDestination::File(file);
-                }
-                utils::StdRedirectionType::StderrWrite
-                | utils::StdRedirectionType::StderrAppend => {
-                    ctx.stderr = OutputDestination::File(file);
-                }
-            }
+        if let Err(e) = ctx.apply_redirections(redirections) {
+            eprintln!("Error applying redirections: {e}");
+            continue;
         }
 
         let result = cmd::dispatch(&cmd_name, &mut ctx);
 
         if let Err(e) = result {
-            if !e.is_empty() {
-                ctx.stderr.writeln(&e).ok();
-            }
+            ctx.stderr.writeln(&format!("{e}")).ok();
         }
     }
 }
