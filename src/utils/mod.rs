@@ -246,6 +246,7 @@ pub fn find_possible_command(prefix: &str) -> Vec<String> {
     let mut builtin_matches = BuiltInCommand::matches(prefix);
     let mut path_cmd_matches = find_posible_path_command(prefix);
     builtin_matches.append(&mut path_cmd_matches);
+    builtin_matches.sort();
 
     builtin_matches
 }
