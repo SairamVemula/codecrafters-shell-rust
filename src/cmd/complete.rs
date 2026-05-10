@@ -75,6 +75,7 @@ impl Complete {
     }
 
     pub fn autocomplete(
+        input: &String,
         args: &Vec<String>,
         completions: &mut CompletionStore,
     ) -> Result<(usize, BTreeSet<String>)> {
@@ -88,6 +89,8 @@ impl Complete {
         if let Some(script_path) = completions.get(cmd) {
             let output = std::process::Command::new(script_path)
                 .args(vec![cmd, last, last_second])
+                .env("COMP_LINE", input)
+                .env("COMP_POINT", input.as_bytes().len().to_string())
                 .output()?;
 
             if output.status.success() {

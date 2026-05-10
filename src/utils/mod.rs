@@ -191,7 +191,7 @@ fn handle_tab(
     let (clear_len, possible_autocompletes) = match args.len() > 1 {
         true => {
             //Complete Tab Handler
-            if let Ok(suggestions) = Complete::autocomplete(&args, completions) {
+            if let Ok(suggestions) = Complete::autocomplete(&input, &args, completions) {
                 suggestions
             } else {
                 //Builtin Tab Handler
