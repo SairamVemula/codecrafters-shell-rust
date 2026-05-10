@@ -1,5 +1,4 @@
 use anyhow::{Result, anyhow};
-use console::Term;
 use std::{collections::BTreeSet, path::PathBuf};
 
 use crate::cmd::context::{CompletionStore, Context};
@@ -82,14 +81,18 @@ impl Complete {
         if args.len() < 2 {
             return Err(anyhow!("two arguments are required"));
         }
-
-        let cmd: &String = &args[0];
+        let empty = String::new();
+        let cmd: &String = &args.first().unwrap();
+        let last: &String = &args.last().unwrap();
+        let last_second: &String = &args.get(args.len() - 2).unwrap_or(&empty);
         if let Some(script_path) = completions.get(cmd) {
-            let output = std::process::Command::new(script_path).output()?;
+            let output = std::process::Command::new(script_path)
+                .args(vec![cmd, last, last_second])
+                .output()?;
 
             if output.status.success() {
                 let stdout = String::from_utf8_lossy(&output.stdout);
-                return Ok((0, stdout.lines().map(|s| format!("{s} ")).collect()));
+                return Ok((last.len(), stdout.lines().map(|s| format!("{s} ")).collect()));
             }
         }
         Err(anyhow!("complete: {}: no completion specification", cmd))
