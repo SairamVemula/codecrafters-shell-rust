@@ -1,3 +1,4 @@
+use std::collections::BTreeSet;
 use std::{env, process};
 
 use crate::cmd::context::Context;
@@ -36,7 +37,7 @@ impl From<&str> for BuiltInCommand {
 }
 
 impl BuiltInCommand {
-    pub fn matches(prefix: &str) -> Vec<String> {
+    pub fn matches(prefix: &str) -> BTreeSet<String> {
         let cmds = ["exit", "echo", "type", "pwd", "cd"];
         cmds.iter()
             .filter(|c| c.starts_with(&prefix))

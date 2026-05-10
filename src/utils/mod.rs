@@ -1,8 +1,5 @@
 use std::{
-    env, fs,
-    io::{self, Write},
-    path,
-    process::{self, Command},
+    collections::BTreeSet, env, fs, io::{self, Write}, path, process::{self, Command}
 };
 
 use anyhow::{Context, Result};
@@ -170,7 +167,7 @@ pub fn get_user_input(term: Term) -> Result<String> {
             console::Key::Home => todo!(),
             console::Key::End => todo!(),
             console::Key::Tab => {
-                let possible_cmds = find_possible_command(&input);
+                let possible_cmds: Vec<String> = find_possible_command(&input);
                 if possible_cmds.len() == 1
                     && let Some(cmd) = possible_cmds.first()
                 {
@@ -220,8 +217,8 @@ pub fn find_possible_path_to_command(cmd: &String) -> Option<String> {
     }
     None
 }
-pub fn find_posible_path_command(prefix: &str) -> Vec<String> {
-    let mut commands = vec![];
+pub fn find_posible_path_command(prefix: &str) -> BTreeSet<String> {
+    let mut commands = BTreeSet::new();
     let path = env::var("PATH").unwrap();
     for dir in env::split_paths(&path) {
         let Ok(entries) = fs::read_dir(dir) else {
@@ -234,7 +231,7 @@ pub fn find_posible_path_command(prefix: &str) -> Vec<String> {
             let file_name = entry.file_name();
             if file_name.to_str().is_some_and(|f| f.starts_with(prefix)) {
                 if let Ok(name) = file_name.into_string() {
-                    commands.push(name);
+                    commands.insert(name);
                 }
             }
         }
@@ -244,9 +241,8 @@ pub fn find_posible_path_command(prefix: &str) -> Vec<String> {
 
 pub fn find_possible_command(prefix: &str) -> Vec<String> {
     let mut builtin_matches = BuiltInCommand::matches(prefix);
-    let mut path_cmd_matches = find_posible_path_command(prefix);
-    builtin_matches.append(&mut path_cmd_matches);
-    builtin_matches.sort();
+    let path_cmd_matches = find_posible_path_command(prefix);
+    builtin_matches.extend(path_cmd_matches);
 
-    builtin_matches
+    builtin_matches.into_iter().collect()
 }
