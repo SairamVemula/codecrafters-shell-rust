@@ -1,5 +1,9 @@
 use std::{
-    collections::BTreeSet, env, fs, io::{self, Write}, path, process::{self, Command}
+    collections::BTreeSet,
+    env, fs,
+    io::{self, Write},
+    ops::Bound::{Included, Unbounded},
+    path,
 };
 
 use anyhow::{Context, Result};
@@ -167,7 +171,7 @@ pub fn get_user_input(term: Term) -> Result<String> {
             console::Key::Home => todo!(),
             console::Key::End => todo!(),
             console::Key::Tab => {
-                let possible_cmds: Vec<String> = find_possible_command(&input);
+                let possible_cmds = find_possible_command(&input);
                 if possible_cmds.len() == 1
                     && let Some(cmd) = possible_cmds.first()
                 {
@@ -175,6 +179,13 @@ pub fn get_user_input(term: Term) -> Result<String> {
                     input.push_str(&format!("{cmd} "));
                     term.clear_line()?;
                     print!("$ {cmd} ");
+                } else if possible_cmds.len() > 1
+                    && let Some(cmd) = longest_comman_prefix_from_btreeset(&possible_cmds, &input)
+                {
+                    input.clear();
+                    input.push_str(&format!("{cmd} "));
+                    term.clear_line()?;
+                    print!("$ {cmd}");
                 } else {
                     if !bell_rang {
                         bell_rang = true;
@@ -182,7 +193,13 @@ pub fn get_user_input(term: Term) -> Result<String> {
                     } else {
                         bell_rang = false;
                         println!();
-                        println!("{}", possible_cmds.join("  "));
+                        println!(
+                            "{}",
+                            possible_cmds
+                                .into_iter()
+                                .collect::<Vec<String>>()
+                                .join("  ")
+                        );
                         print!("$ {input}");
                     }
                 }
@@ -239,10 +256,35 @@ pub fn find_posible_path_command(prefix: &str) -> BTreeSet<String> {
     commands
 }
 
-pub fn find_possible_command(prefix: &str) -> Vec<String> {
+pub fn find_possible_command(prefix: &str) -> BTreeSet<String> {
     let mut builtin_matches = BuiltInCommand::matches(prefix);
     let path_cmd_matches = find_posible_path_command(prefix);
     builtin_matches.extend(path_cmd_matches);
 
-    builtin_matches.into_iter().collect()
+    builtin_matches
+}
+
+pub fn longest_comman_prefix_from_btreeset(
+    btree: &BTreeSet<String>,
+    prefix: &String,
+) -> Option<String> {
+    let mut subset = btree
+        .range::<str, _>((Included(prefix.as_str()), Unbounded))
+        .take_while(|s| s.starts_with(prefix))
+        .peekable();
+
+    let first = subset.peek().copied();
+    let last = subset.last();
+
+    if let (Some(first), Some(last)) = (first, last) {
+        let lcp: String = first
+            .chars()
+            .zip(last.chars())
+            .take_while(|(f, l)| f == l)
+            .map(|(f, _)| f)
+            .collect();
+        return Some(lcp);
+    }
+
+    None
 }

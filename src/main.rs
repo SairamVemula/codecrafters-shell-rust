@@ -5,7 +5,10 @@ use std::{
 
 use console::Term;
 
-use crate::{cmd::context::{Context, OutputDestination}, utils::get_user_input};
+use crate::{
+    cmd::context::{Context, OutputDestination},
+    utils::get_user_input,
+};
 
 mod cmd;
 mod utils;
@@ -14,7 +17,7 @@ fn main() {
     loop {
         print!("$ ");
         io::stdout().flush().unwrap();
-        
+
         let term = Term::stdout();
 
         let input = get_user_input(term).unwrap();
