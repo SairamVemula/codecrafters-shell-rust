@@ -7,6 +7,7 @@ use crate::cmd::context::{CompletionStore, Context};
 pub enum CompleteFlag {
     Print,
     Register,
+    Remove,
 }
 #[derive(Debug)]
 pub struct Complete {
@@ -26,6 +27,12 @@ impl From<&Vec<String>> for Complete {
 
             "-p" => Self {
                 flag: CompleteFlag::Print,
+                path: None,
+                command: value[1].clone(),
+            },
+
+            "-r" => Self {
+                flag: CompleteFlag::Remove,
                 path: None,
                 command: value[1].clone(),
             },
@@ -61,6 +68,10 @@ impl Complete {
 
                 None => Err(anyhow!("complete: missing path")),
             },
+            CompleteFlag::Remove => {
+                    ctx.completions.remove(&complete.command);
+                    Ok(String::new())
+            },
         };
 
         match result {
@@ -95,7 +106,10 @@ impl Complete {
 
             if output.status.success() {
                 let stdout = String::from_utf8_lossy(&output.stdout);
-                return Ok((last.len(), stdout.lines().map(|s| format!("{s} ")).collect()));
+                return Ok((
+                    last.len(),
+                    stdout.lines().map(|s| format!("{s} ")).collect(),
+                ));
             }
         }
         Err(anyhow!("complete: {}: no completion specification", cmd))
