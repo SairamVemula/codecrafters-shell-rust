@@ -283,7 +283,9 @@ pub fn longest_comman_prefix_from_btreeset(
             .take_while(|(f, l)| f == l)
             .map(|(f, _)| f)
             .collect();
-        return Some(lcp);
+        if &lcp != prefix  {
+            return Some(lcp);
+        }
     }
 
     None
