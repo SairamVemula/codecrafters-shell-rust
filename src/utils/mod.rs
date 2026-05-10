@@ -171,9 +171,9 @@ pub fn get_user_input(term: Term) -> Result<String> {
             console::Key::Tab => {
                 if let Some(cmd) = find_possible_command(&input) {
                     input.clear();
-                    input.push_str(&format!("{cmd}"));
+                    input.push_str(&format!("{cmd} "));
                     term.clear_line()?;
-                    print!("$ {cmd}")
+                    print!("$ {cmd} ")
                 }
             }
             console::Key::BackTab => todo!(),
