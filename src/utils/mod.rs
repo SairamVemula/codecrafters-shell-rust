@@ -1,4 +1,5 @@
 use std::{
+    env, fs,
     io::{self, Write},
     path,
     process::{self, Command},
@@ -198,10 +199,48 @@ pub fn get_user_input(term: Term) -> Result<String> {
     Ok(input)
 }
 
+pub fn find_possible_path_to_command(cmd: &String) -> Option<String> {
+    let path = env::var("PATH").unwrap();
+    for dir in env::split_paths(&path) {
+        let base_path = dir.join(cmd);
+        if base_path.exists() && is_executable(&base_path) {
+            return Some(base_path.display().to_string());
+        }
+    }
+    None
+}
+pub fn find_posible_path_command(prefix: &str) -> Vec<String> {
+    let mut commands = vec![];
+    let path = env::var("PATH").unwrap();
+    for dir in env::split_paths(&path) {
+        let Ok(entries) = fs::read_dir(dir) else {
+            continue;
+        };
+        for entry in entries {
+            let Ok(entry) = entry else {
+                continue;
+            };
+            let file_name = entry.file_name();
+            if file_name.to_str().is_some_and(|f| f.starts_with(prefix)) {
+                if let Ok(name) = file_name.into_string() {
+                    commands.push(name);
+                }
+            }
+        }
+    }
+    commands
+}
+
 pub fn find_possible_command(prefix: &str) -> Option<String> {
     let builtin_matches = BuiltInCommand::matches(prefix);
 
     if builtin_matches.len() == 0 {
+        let path_cmd_matches = find_posible_path_command(prefix);
+        if path_cmd_matches.len() == 0 {
+            return None;
+        } else if path_cmd_matches.len() > 0 {
+            return path_cmd_matches.first().cloned();
+        }
         return None;
     } else if builtin_matches.len() == 1 {
         return builtin_matches.first().cloned();

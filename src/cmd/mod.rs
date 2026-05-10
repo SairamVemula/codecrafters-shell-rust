@@ -48,18 +48,15 @@ pub fn handle_type(ctx: &mut Context) -> Result<(), String> {
     if ctx.args.is_empty() {
         return Ok(());
     }
-    let path = env::var("PATH").unwrap();
+    // let path = env::var("PATH").unwrap();
     let arg = &ctx.args[0];
     match BuiltInCommand::from(arg.as_str()) {
         BuiltInCommand::Unknown => {
-            for dir in env::split_paths(&path) {
-                let base_path = dir.join(arg);
-                if base_path.exists() && utils::is_executable(&base_path) {
-                    return ctx
-                        .stdout
-                        .writeln(&format!("{} is {}", arg, base_path.display()))
-                        .map_err(|e| e.to_string());
-                }
+            if let Some(base_path) = utils::find_possible_path_to_command(arg) {
+                return ctx
+                    .stdout
+                    .writeln(&format!("{} is {}", arg, base_path))
+                    .map_err(|e| e.to_string());
             }
             return Err(format!("{}: not found", arg));
         }
