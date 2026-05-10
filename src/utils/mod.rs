@@ -9,7 +9,7 @@ use std::{
 use anyhow::{Context, Result};
 use console::Term;
 
-use crate::cmd::BuiltInCommand;
+use crate::cmd::{BuiltInCommand, complete::Complete, context::CompletionStore};
 
 #[cfg(windows)]
 pub fn is_executable(path: &path::Path) -> bool {
@@ -153,7 +153,7 @@ pub fn parse_redirections(args: &mut Vec<String>) -> Vec<Redirection> {
     redirections
 }
 
-pub fn get_user_input(term: Term) -> Result<String> {
+pub fn get_user_input(mut term: &mut Term, completions: &mut CompletionStore) -> Result<String> {
     let mut input = String::new();
     let mut bell_rang = false;
     loop {
@@ -166,7 +166,7 @@ pub fn get_user_input(term: Term) -> Result<String> {
                 print!("$ {input}")
             }
             console::Key::Tab => {
-                bell_rang = handle_tab(&mut input, &term, bell_rang)?;
+                bell_rang = handle_tab(&mut input, &mut term, bell_rang, completions)?;
             }
             console::Key::Char(ch) => {
                 input.push(ch);
@@ -181,8 +181,27 @@ pub fn get_user_input(term: Term) -> Result<String> {
     Ok(input)
 }
 
-fn handle_tab(input: &mut String, term: &Term, mut bell_rang: bool) -> Result<bool> {
-    let (clear_len, possible_autocompletes) = autocomplete(input);
+fn handle_tab(
+    input: &mut String,
+    term: &mut Term,
+    mut bell_rang: bool,
+    completions: &mut CompletionStore,
+) -> Result<bool> {
+    let args = parse_args(input);
+    let (clear_len, possible_autocompletes) = match args.len() > 1 {
+        true => {
+            //Complete Tab Handler
+            if let Ok(suggestions) = Complete::autocomplete(&args, completions) {
+                suggestions
+            } else {
+                //Builtin Tab Handler
+                let empty = String::new();
+                let last = args.last().unwrap_or(&empty);
+                find_files_or_dirs(last)
+            }
+        }
+        false => (args[0].len(), find_possible_command(&args[0])),
+    };
     if possible_autocompletes.len() == 1 {
         if let Some(autocomplete) = possible_autocompletes.first() {
             input.clear_chars(clear_len);
@@ -203,7 +222,14 @@ fn handle_tab(input: &mut String, term: &Term, mut bell_rang: bool) -> Result<bo
             } else {
                 bell_rang = false;
                 println!();
-                println!("{}", possible_autocompletes.iter().cloned().collect::<Vec<_>>().join(" "));
+                println!(
+                    "{}",
+                    possible_autocompletes
+                        .iter()
+                        .cloned()
+                        .collect::<Vec<_>>()
+                        .join(" ")
+                );
                 print!("$ {input}");
             }
         }
@@ -211,6 +237,13 @@ fn handle_tab(input: &mut String, term: &Term, mut bell_rang: bool) -> Result<bo
         print!("\x07");
     }
     Ok(bell_rang)
+}
+
+pub fn autocomplete(args: &Vec<String>) -> (usize, BTreeSet<String>) {
+    if args.len() > 1 {
+        return find_files_or_dirs(args.last().unwrap_or(&"".to_string()));
+    }
+    (args[0].len(), find_possible_command(&args[0]))
 }
 
 pub fn find_possible_path_to_command(cmd: &str) -> Option<String> {
@@ -226,9 +259,13 @@ pub fn find_possible_path_to_command(cmd: &str) -> Option<String> {
 
 pub fn find_possible_path_command(prefix: &str) -> BTreeSet<String> {
     let mut commands = BTreeSet::new();
-    let Ok(path) = env::var("PATH") else { return commands; };
+    let Ok(path) = env::var("PATH") else {
+        return commands;
+    };
     for dir in env::split_paths(&path) {
-        let Ok(entries) = fs::read_dir(dir) else { continue; };
+        let Ok(entries) = fs::read_dir(dir) else {
+            continue;
+        };
         for entry in entries.flatten() {
             let file_name = entry.file_name();
             if let Some(s) = file_name.to_str() {
@@ -262,7 +299,7 @@ pub fn longest_common_prefix_from_btreeset(
     let args = parse_args(input);
     let empty = "".to_string();
     let prefix = args.last().unwrap_or(&empty);
-    
+
     let mut subset = btree
         .range::<str, _>((Included(prefix.as_str()), Unbounded))
         .take_while(|s| s.starts_with(prefix))
@@ -316,12 +353,4 @@ pub fn find_files_or_dirs(partial: &str) -> (usize, BTreeSet<String>) {
         .filter(|name| name.starts_with(search_str))
         .collect();
     (search_str.len(), btree_set)
-}
-
-pub fn autocomplete(input: &str) -> (usize, BTreeSet<String>) {
-    let args = parse_args(input);
-    if args.len() > 1 {
-        return find_files_or_dirs(args.last().unwrap_or(&"".to_string()));
-    }
-    (args[0].len(), find_possible_command(&args[0]))
 }

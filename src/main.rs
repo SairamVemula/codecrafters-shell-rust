@@ -1,11 +1,9 @@
-use std::{
-    collections::HashMap, io::{self, Write}
-};
+use std::io::{self, Write};
 
 use console::Term;
 
 use crate::{
-    cmd::context::Context,
+    cmd::context::{CompletionStore, Context},
     utils::get_user_input,
 };
 
@@ -13,14 +11,14 @@ mod cmd;
 mod utils;
 
 fn main() {
-    let mut completions = HashMap::new();
+    let mut completions = CompletionStore::new();
     loop {
         print!("$ ");
         io::stdout().flush().unwrap();
 
-        let term = Term::stdout();
+        let mut term = Term::stdout();
 
-        let input = get_user_input(term).unwrap();
+        let input = get_user_input(&mut term, &mut completions).unwrap();
 
         let mut parsed = utils::parse_args(input.trim());
 

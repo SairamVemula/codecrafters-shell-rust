@@ -49,15 +49,16 @@ impl OutputDestination {
     }
 }
 
+pub type CompletionStore = HashMap<String, PathBuf>;
 pub struct Context<'a> {
     pub args: Vec<String>,
     pub stdout: OutputDestination,
     pub stderr: OutputDestination,
-    pub completions: &'a mut HashMap<String, PathBuf>,
+    pub completions: &'a mut CompletionStore,
 }
 
 impl<'a> Context<'a> {
-    pub fn new(args: Vec<String>, completions: &'a mut HashMap<String, PathBuf>) -> Self {
+    pub fn new(args: Vec<String>, completions: &'a mut CompletionStore) -> Self {
         Self {
             args,
             stdout: OutputDestination::Stdout,
