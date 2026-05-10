@@ -150,7 +150,7 @@ pub fn parse_redirections(args: &mut Vec<String>) -> Vec<Redirection> {
 
 pub fn get_user_input(term: Term) -> Result<String> {
     let mut input = String::new();
-
+    let mut bell_rang = false;
     loop {
         let key = term.read_key().context("Reading each key")?;
         match key {
@@ -170,13 +170,24 @@ pub fn get_user_input(term: Term) -> Result<String> {
             console::Key::Home => todo!(),
             console::Key::End => todo!(),
             console::Key::Tab => {
-                if let Some(cmd) = find_possible_command(&input) {
+                let possible_cmds = find_possible_command(&input);
+                if possible_cmds.len() == 1
+                    && let Some(cmd) = possible_cmds.first()
+                {
                     input.clear();
                     input.push_str(&format!("{cmd} "));
                     term.clear_line()?;
                     print!("$ {cmd} ");
                 } else {
-                    print!("\x07");
+                    if !bell_rang {
+                        bell_rang = true;
+                        print!("\x07");
+                    } else {
+                        bell_rang = false;
+                        println!();
+                        println!("{}", possible_cmds.join("  "));
+                        print!("$ {input}");
+                    }
                 }
             }
             console::Key::BackTab => todo!(),
@@ -231,19 +242,10 @@ pub fn find_posible_path_command(prefix: &str) -> Vec<String> {
     commands
 }
 
-pub fn find_possible_command(prefix: &str) -> Option<String> {
-    let builtin_matches = BuiltInCommand::matches(prefix);
+pub fn find_possible_command(prefix: &str) -> Vec<String> {
+    let mut builtin_matches = BuiltInCommand::matches(prefix);
+    let mut path_cmd_matches = find_posible_path_command(prefix);
+    builtin_matches.append(&mut path_cmd_matches);
 
-    if builtin_matches.len() == 0 {
-        let path_cmd_matches = find_posible_path_command(prefix);
-        if path_cmd_matches.len() == 0 {
-            return None;
-        } else if path_cmd_matches.len() > 0 {
-            return path_cmd_matches.first().cloned();
-        }
-        return None;
-    } else if builtin_matches.len() == 1 {
-        return builtin_matches.first().cloned();
-    }
-    None
+    builtin_matches
 }
