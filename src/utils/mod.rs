@@ -178,10 +178,12 @@ pub fn get_user_input(term: Term) -> Result<String> {
                     print!("$ {cmd} ");
                 } else {
                     match &prev_input {
-                        Some(prev) if prev == &input => print!("\x07"),
+                        Some(prev) if prev == &input => {
+                            print!("\x07");
+                        },
                         None => prev_input = Some(input.clone()),
                         _ => {}
-                    }
+                    };
                 }
             }
             console::Key::BackTab => todo!(),
