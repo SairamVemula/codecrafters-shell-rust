@@ -1,4 +1,13 @@
-use std::path;
+use std::{
+    io::{self, Write},
+    path,
+    process::{self, Command},
+};
+
+use anyhow::{Context, Result};
+use console::Term;
+
+use crate::cmd::BuiltInCommand;
 
 #[cfg(windows)]
 pub fn is_executable(path: &path::Path) -> bool {
@@ -136,4 +145,64 @@ pub fn parse_redirections(args: &mut Vec<String>) -> Vec<Redirection> {
         i += 1;
     }
     redirections
+}
+
+pub fn get_user_input(term: Term) -> Result<String> {
+    let mut input = String::new();
+
+    loop {
+        let key = term.read_key().context("Reading each key")?;
+        match key {
+            console::Key::Unknown => todo!(),
+            console::Key::UnknownEscSeq(_) => todo!(),
+            console::Key::ArrowLeft => todo!(),
+            console::Key::ArrowRight => todo!(),
+            console::Key::ArrowUp => todo!(),
+            console::Key::ArrowDown => todo!(),
+            console::Key::Enter => break,
+            console::Key::Escape => todo!(),
+            console::Key::Backspace => {
+                input.pop();
+                term.clear_line()?;
+                print!("$ {input}")
+            }
+            console::Key::Home => todo!(),
+            console::Key::End => todo!(),
+            console::Key::Tab => {
+                if let Some(cmd) = find_possible_command(&input) {
+                    input.clear();
+                    input.push_str(&format!("{cmd}"));
+                    term.clear_line()?;
+                    print!("$ {cmd}")
+                }
+            }
+            console::Key::BackTab => todo!(),
+            console::Key::Alt => todo!(),
+            console::Key::Del => todo!(),
+            console::Key::Shift => {}
+            console::Key::Insert => todo!(),
+            console::Key::PageUp => todo!(),
+            console::Key::PageDown => todo!(),
+            console::Key::Char(ch) => {
+                input.push(ch);
+                print!("{ch}");
+            }
+            console::Key::CtrlC => todo!(),
+            _ => todo!(),
+        };
+        io::stdout().flush()?;
+    }
+    println!();
+    Ok(input)
+}
+
+pub fn find_possible_command(prefix: &str) -> Option<String> {
+    let builtin_matches = BuiltInCommand::matches(prefix);
+
+    if builtin_matches.len() == 0 {
+        return None;
+    } else if builtin_matches.len() == 1 {
+        return builtin_matches.first().cloned();
+    }
+    None
 }

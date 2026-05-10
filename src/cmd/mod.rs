@@ -1,17 +1,14 @@
-use std::{
-    env,
-    process,
-};
+use std::{env, process};
 
-use crate::utils;
 use crate::cmd::context::Context;
+use crate::utils;
 
 pub mod cd;
+pub mod context;
 pub mod echo;
 pub mod pwd;
-pub mod context;
 
-pub enum Command {
+pub enum BuiltInCommand {
     Exit,
     Echo,
     Type,
@@ -20,43 +17,56 @@ pub enum Command {
     Unknown,
 }
 
-impl<'a> Command {
-    pub fn from_raw(input: &str) -> Command {
+impl From<&str> for BuiltInCommand {
+    fn from(input: &str) -> Self {
         match input {
-            "exit" => Command::Exit,
+            "exit" => Self::Exit,
 
-            "echo" => Command::Echo,
+            "echo" => Self::Echo,
 
-            "type" => Command::Type,
+            "type" => Self::Type,
 
-            "pwd" => Command::Pwd,
+            "pwd" => Self::Pwd,
 
-            "cd" => Command::Cd,
+            "cd" => Self::Cd,
 
-            _ => Command::Unknown,
+            _ => Self::Unknown,
         }
     }
 }
 
+impl BuiltInCommand {
+    pub fn matches(prefix: &str) -> Vec<String> {
+        let cmds = ["exit", "echo", "type", "pwd", "cd"];
+        cmds.iter()
+            .filter(|c| c.starts_with(&prefix))
+            .map(ToString::to_string)
+            .collect()
+    }
+}
 pub fn handle_type(ctx: &mut Context) -> Result<(), String> {
     if ctx.args.is_empty() {
         return Ok(());
     }
     let path = env::var("PATH").unwrap();
     let arg = &ctx.args[0];
-    match Command::from_raw(arg) {
-        Command::Unknown => {
+    match BuiltInCommand::from(arg.as_str()) {
+        BuiltInCommand::Unknown => {
             for dir in env::split_paths(&path) {
                 let base_path = dir.join(arg);
                 if base_path.exists() && utils::is_executable(&base_path) {
-                    return ctx.stdout.writeln(&format!("{} is {}", arg, base_path.display())).map_err(|e| e.to_string());
+                    return ctx
+                        .stdout
+                        .writeln(&format!("{} is {}", arg, base_path.display()))
+                        .map_err(|e| e.to_string());
                 }
             }
             return Err(format!("{}: not found", arg));
         }
-        _ => {
-            ctx.stdout.writeln(&format!("{} is a shell builtin", arg)).map_err(|e| e.to_string())
-        }
+        _ => ctx
+            .stdout
+            .writeln(&format!("{} is a shell builtin", arg))
+            .map_err(|e| e.to_string()),
     }
 }
 
@@ -65,8 +75,12 @@ pub fn handle_run(cmd: String, ctx: &mut Context) -> Result<(), String> {
 
     match output {
         Ok(output) => {
-            ctx.stdout.write(&String::from_utf8_lossy(&output.stdout)).map_err(|e| e.to_string())?;
-            ctx.stderr.write(&String::from_utf8_lossy(&output.stderr)).map_err(|e| e.to_string())?;
+            ctx.stdout
+                .write(&String::from_utf8_lossy(&output.stdout))
+                .map_err(|e| e.to_string())?;
+            ctx.stderr
+                .write(&String::from_utf8_lossy(&output.stderr))
+                .map_err(|e| e.to_string())?;
             Ok(())
         }
 
@@ -75,19 +89,15 @@ pub fn handle_run(cmd: String, ctx: &mut Context) -> Result<(), String> {
 }
 
 pub fn dispatch(cmd_name: &str, ctx: &mut Context) -> Result<(), String> {
-    let command = Command::from_raw(cmd_name);
+    let command = BuiltInCommand::from(cmd_name);
     match command {
-        Command::Exit => {
+        BuiltInCommand::Exit => {
             std::process::exit(0);
         }
-        Command::Echo => echo::handle_echo(ctx),
-        Command::Type => handle_type(ctx),
-        Command::Pwd => pwd::handle_pwd(ctx),
-        Command::Cd => handle_cd_wrapper(ctx),
-        Command::Unknown => handle_run(cmd_name.to_string(), ctx),
+        BuiltInCommand::Echo => echo::handle_echo(ctx),
+        BuiltInCommand::Type => handle_type(ctx),
+        BuiltInCommand::Pwd => pwd::handle_pwd(ctx),
+        BuiltInCommand::Cd => cd::handle_cd(ctx),
+        BuiltInCommand::Unknown => handle_run(cmd_name.to_string(), ctx),
     }
-}
-
-fn handle_cd_wrapper(ctx: &mut Context) -> Result<(), String> {
-    cd::handle_cd(ctx)
 }

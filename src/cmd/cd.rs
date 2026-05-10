@@ -1,5 +1,5 @@
-use std::{env, path::PathBuf};
 use crate::cmd::context::Context;
+use std::{env, path::PathBuf};
 
 pub fn handle_cd(ctx: &mut Context) -> Result<(), String> {
     let path = ctx.args.get(0).map_or("~", |v| v);
