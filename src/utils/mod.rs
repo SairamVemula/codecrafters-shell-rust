@@ -239,13 +239,6 @@ fn handle_tab(
     Ok(bell_rang)
 }
 
-pub fn autocomplete(args: &Vec<String>) -> (usize, BTreeSet<String>) {
-    if args.len() > 1 {
-        return find_files_or_dirs(args.last().unwrap_or(&"".to_string()));
-    }
-    (args[0].len(), find_possible_command(&args[0]))
-}
-
 pub fn find_possible_path_to_command(cmd: &str) -> Option<String> {
     let path = env::var("PATH").ok()?;
     for dir in env::split_paths(&path) {

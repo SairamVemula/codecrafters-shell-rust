@@ -89,7 +89,7 @@ impl Complete {
 
             if output.status.success() {
                 let stdout = String::from_utf8_lossy(&output.stdout);
-                return Ok((0, stdout.lines().map(|s| s.to_string()).collect()));
+                return Ok((0, stdout.lines().map(|s| format!("{s} ")).collect()));
             }
         }
         Err(anyhow!("complete: {}: no completion specification", cmd))
