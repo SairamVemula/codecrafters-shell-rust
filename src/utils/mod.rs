@@ -150,6 +150,8 @@ pub fn parse_redirections(args: &mut Vec<String>) -> Vec<Redirection> {
 pub fn get_user_input(term: Term) -> Result<String> {
     let mut input = String::new();
 
+    let mut prev_input = None;
+
     loop {
         let key = term.read_key().context("Reading each key")?;
         match key {
@@ -173,7 +175,13 @@ pub fn get_user_input(term: Term) -> Result<String> {
                     input.clear();
                     input.push_str(&format!("{cmd} "));
                     term.clear_line()?;
-                    print!("$ {cmd} ")
+                    print!("$ {cmd} ");
+                } else {
+                    match &prev_input {
+                        Some(prev) if prev == &input => print!("\x07"),
+                        None => prev_input = Some(input.clone()),
+                        _ => {}
+                    }
                 }
             }
             console::Key::BackTab => todo!(),
