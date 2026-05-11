@@ -72,8 +72,6 @@ impl Complete {
             }
 
             Err(err) => {
-                ctx.stderr.writeln(&err).map_err(|e| e.to_string())?;
-
                 Err(err)
             }
         }
