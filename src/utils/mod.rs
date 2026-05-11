@@ -1,6 +1,7 @@
 use std::{
     collections::BTreeSet,
-    env, fs,
+    env,
+    fs::{self, read_dir},
     io::{self, Write},
     ops::Bound::{Included, Unbounded},
     path,
@@ -28,6 +29,23 @@ pub fn is_executable(path: &path::Path) -> bool {
         meta.is_file() && (meta.permissions().mode() & 0o111 != 0)
     } else {
         false
+    }
+}
+
+trait StringExt {
+    fn clear_chars(&mut self, n: usize);
+}
+
+impl StringExt for String {
+    fn clear_chars(&mut self, n: usize) {
+        let current_char_count = self.chars().count();
+        let keep_count = current_char_count.saturating_sub(n);
+        let byte_index = self
+            .char_indices()
+            .nth(keep_count)
+            .map(|(idx, _)| idx)
+            .unwrap_or(self.len());
+        self.truncate(byte_index);
     }
 }
 
@@ -171,21 +189,22 @@ pub fn get_user_input(term: Term) -> Result<String> {
             console::Key::Home => todo!(),
             console::Key::End => todo!(),
             console::Key::Tab => {
-                let possible_cmds = find_possible_command(&input);
-                if possible_cmds.len() == 1
-                    && let Some(cmd) = possible_cmds.first()
+                let (clear_len, possible_autocompletes) = autocomplete(&input);
+                if possible_autocompletes.len() == 1
+                    && let Some(autocomplete) = possible_autocompletes.first()
                 {
-                    input.clear();
-                    input.push_str(&format!("{cmd} "));
-                    term.clear_line()?;
-                    print!("$ {cmd} ");
-                } else if possible_cmds.len() > 1
-                    && let Some(cmd) = longest_comman_prefix_from_btreeset(&possible_cmds, &input)
+                    input.clear_chars(clear_len);
+                    input.push_str(&format!("{autocomplete} "));
+                    term.clear_chars(clear_len)?;
+                    print!("{autocomplete} ");
+                } else if possible_autocompletes.len() > 1
+                    && let Some(autocomplete) =
+                        longest_comman_prefix_from_btreeset(&possible_autocompletes, &input)
                 {
-                    input.clear();
-                    input.push_str(&format!("{cmd}"));
+                    input.clear_chars(clear_len);
+                    input.push_str(&format!("{autocomplete}"));
                     term.clear_line()?;
-                    print!("$ {cmd}");
+                    print!("{autocomplete}");
                 } else {
                     if !bell_rang {
                         bell_rang = true;
@@ -195,7 +214,7 @@ pub fn get_user_input(term: Term) -> Result<String> {
                         println!();
                         println!(
                             "{}",
-                            possible_cmds
+                            possible_autocompletes
                                 .into_iter()
                                 .collect::<Vec<String>>()
                                 .join("  ")
@@ -283,10 +302,29 @@ pub fn longest_comman_prefix_from_btreeset(
             .take_while(|(f, l)| f == l)
             .map(|(f, _)| f)
             .collect();
-        if &lcp != prefix  {
+        if &lcp != prefix {
             return Some(lcp);
         }
     }
 
     None
+}
+
+pub fn find_files_or_dirs(prefix: &str) -> BTreeSet<String> {
+    let curr_dir = env::current_dir().unwrap();
+    let dir_list = fs::read_dir(curr_dir).unwrap();
+
+    dir_list
+        .filter_map(|f| f.ok())
+        .map(|f| f.file_name().to_string_lossy().into_owned())
+        .filter(|name| name.starts_with(prefix))
+        .collect()
+}
+
+pub fn autocomplete(input: &str) -> (usize, BTreeSet<String>) {
+    let args = parse_args(input);
+    if args.len() > 1 {
+        return (args[1].len(), find_files_or_dirs(&args[1]));
+    }
+    (args[0].len(), find_possible_command(&args[0]))
 }
