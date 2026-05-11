@@ -1,6 +1,5 @@
 use std::{
-    fs::OpenOptions,
-    io::{self, Write},
+    collections::HashMap, fs::OpenOptions, io::{self, Write}
 };
 
 use console::Term;
@@ -14,6 +13,7 @@ mod cmd;
 mod utils;
 
 fn main() {
+    let mut completions = HashMap::new();
     loop {
         print!("$ ");
         io::stdout().flush().unwrap();
@@ -32,7 +32,7 @@ fn main() {
 
         let redirections = utils::parse_redirections(&mut parsed);
 
-        let mut ctx = Context::new(parsed);
+        let mut ctx = Context::new(parsed, &mut completions);
 
         for redir in redirections {
             let file = OpenOptions::new()

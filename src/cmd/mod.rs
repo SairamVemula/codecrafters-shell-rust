@@ -1,6 +1,7 @@
 use std::collections::BTreeSet;
 use std::{ process};
 
+use crate::cmd::complete::Complete;
 use crate::cmd::context::Context;
 use crate::utils;
 
@@ -100,7 +101,7 @@ pub fn dispatch(cmd_name: &str, ctx: &mut Context) -> Result<(), String> {
         BuiltInCommand::Type => handle_type(ctx),
         BuiltInCommand::Pwd => pwd::handle_pwd(ctx),
         BuiltInCommand::Cd => cd::handle_cd(ctx),
-        BuiltInCommand::Complete => complete::handle_complete(ctx),
+        BuiltInCommand::Complete => Complete::handle(ctx),
         BuiltInCommand::Unknown => handle_run(cmd_name.to_string(), ctx),
     }
 }

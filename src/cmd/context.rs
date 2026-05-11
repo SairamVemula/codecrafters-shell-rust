@@ -1,5 +1,7 @@
+use std::collections::HashMap;
 use std::fs::File;
 use std::io::{self, Write};
+use std::path::PathBuf;
 
 pub enum OutputDestination {
     Stdout,
@@ -33,18 +35,20 @@ impl OutputDestination {
     }
 }
 
-pub struct Context {
+pub struct Context<'a> {
     pub args: Vec<String>,
     pub stdout: OutputDestination,
     pub stderr: OutputDestination,
+    pub completions: &'a mut HashMap<String, PathBuf>,
 }
 
-impl Context {
-    pub fn new(args: Vec<String>) -> Self {
+impl<'a> Context<'a> {
+    pub fn new(args: Vec<String>, completions: &'a mut HashMap<String, PathBuf>) -> Self {
         Self {
             args,
             stdout: OutputDestination::Stdout,
             stderr: OutputDestination::Stderr,
+            completions,
         }
     }
 }
