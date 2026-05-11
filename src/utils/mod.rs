@@ -353,8 +353,8 @@ pub fn find_files_or_dirs(partial: &str) -> (usize, BTreeSet<String>) {
 
 pub fn autocomplete(input: &str) -> (usize, BTreeSet<String>) {
     let args = parse_args(input);
-    if args.len() > 1 {
-        return find_files_or_dirs(&args[1]);
+    if args.len() > 1 || input.ends_with(" ") {
+        return find_files_or_dirs(&args.get(1).unwrap_or(&"".to_string()));
     }
     (args[0].len(), find_possible_command(&args[0]))
 }
