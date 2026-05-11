@@ -119,7 +119,7 @@ pub fn parse_args(input: &str) -> Vec<String> {
         }
     }
 
-    if !current.is_empty() {
+    if !current.is_empty() || input.ends_with(" ") {
         args.push(current);
     }
 
@@ -290,8 +290,12 @@ pub fn find_possible_command(prefix: &str) -> BTreeSet<String> {
 
 pub fn longest_comman_prefix_from_btreeset(
     btree: &BTreeSet<String>,
-    prefix: &String,
+    input: &String,
 ) -> Option<String> {
+    let args = parse_args(input);
+    let empty = "".to_string();
+    let prefix = args.last().unwrap_or(&empty);
+    
     let mut subset = btree
         .range::<str, _>((Included(prefix.as_str()), Unbounded))
         .take_while(|s| s.starts_with(prefix))
@@ -353,8 +357,8 @@ pub fn find_files_or_dirs(partial: &str) -> (usize, BTreeSet<String>) {
 
 pub fn autocomplete(input: &str) -> (usize, BTreeSet<String>) {
     let args = parse_args(input);
-    if args.len() > 1 || input.ends_with(" ") {
-        return find_files_or_dirs(&args.get(1).unwrap_or(&"".to_string()));
+    if args.len() > 1 {
+        return find_files_or_dirs(&args.last().unwrap_or(&"".to_string()));
     }
     (args[0].len(), find_possible_command(&args[0]))
 }
