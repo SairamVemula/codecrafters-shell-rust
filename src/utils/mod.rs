@@ -3,7 +3,7 @@ use std::{
     env, fs,
     io::{self, Write},
     ops::Bound::{Included, Unbounded},
-    path::{self, Path},
+    path::{self, MAIN_SEPARATOR, Path, PathBuf},
 };
 
 use anyhow::{Context, Result};
@@ -310,13 +310,24 @@ pub fn longest_comman_prefix_from_btreeset(
 }
 
 pub fn find_files_or_dirs(partial: &str) -> (usize, BTreeSet<String>) {
-    let path = Path::new(partial);
+    let (curr_dir, search_str) = if partial.ends_with(MAIN_SEPARATOR) {
+        (PathBuf::from(partial), "")
+    } else {
+        let path = Path::new(partial);
 
-    let search_str = path.file_name().and_then(|s| s.to_str()).unwrap_or("");
+        let search = path
+            .file_name()
+            .and_then(|s| s.to_str())
+            .unwrap_or("");
 
-    let curr_dir = match path.parent() {
-        Some(parent) if !parent.as_os_str().is_empty() => parent.to_path_buf(),
-        _ => env::current_dir().unwrap(),
+        let dir = match path.parent() {
+            Some(parent) if !parent.as_os_str().is_empty() => {
+                parent.to_path_buf()
+            }
+            _ => env::current_dir().unwrap(),
+        };
+
+        (dir, search)
     };
 
     let Ok(dir_list) = fs::read_dir(curr_dir) else {
