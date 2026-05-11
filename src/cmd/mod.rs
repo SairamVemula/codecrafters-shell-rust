@@ -8,6 +8,7 @@ pub mod cd;
 pub mod context;
 pub mod echo;
 pub mod pwd;
+pub mod complete;
 
 pub enum BuiltInCommand {
     Exit,
@@ -99,7 +100,7 @@ pub fn dispatch(cmd_name: &str, ctx: &mut Context) -> Result<(), String> {
         BuiltInCommand::Type => handle_type(ctx),
         BuiltInCommand::Pwd => pwd::handle_pwd(ctx),
         BuiltInCommand::Cd => cd::handle_cd(ctx),
-        BuiltInCommand::Complete => todo!(),
+        BuiltInCommand::Complete => complete::handle_complete(ctx),
         BuiltInCommand::Unknown => handle_run(cmd_name.to_string(), ctx),
     }
 }
