@@ -193,9 +193,9 @@ pub fn get_user_input(term: Term) -> Result<String> {
                     && let Some(autocomplete) = possible_autocompletes.first()
                 {
                     input.clear_chars(clear_len);
-                    input.push_str(&format!("{autocomplete} "));
+                    input.push_str(&format!("{autocomplete}"));
                     term.clear_chars(clear_len)?;
-                    print!("{autocomplete} ");
+                    print!("{autocomplete}");
                 } else if possible_autocompletes.len() > 1
                     && let Some(autocomplete) =
                         longest_comman_prefix_from_btreeset(&possible_autocompletes, &input)
@@ -216,7 +216,7 @@ pub fn get_user_input(term: Term) -> Result<String> {
                             possible_autocompletes
                                 .into_iter()
                                 .collect::<Vec<String>>()
-                                .join("  ")
+                                .join(" ")
                         );
                         print!("$ {input}");
                     }
@@ -280,6 +280,12 @@ pub fn find_possible_command(prefix: &str) -> BTreeSet<String> {
     builtin_matches.extend(path_cmd_matches);
 
     builtin_matches
+        .into_iter()
+        .map(|mut f| {
+            f.push(' ');
+            f
+        })
+        .collect()
 }
 
 pub fn longest_comman_prefix_from_btreeset(
@@ -315,15 +321,10 @@ pub fn find_files_or_dirs(partial: &str) -> (usize, BTreeSet<String>) {
     } else {
         let path = Path::new(partial);
 
-        let search = path
-            .file_name()
-            .and_then(|s| s.to_str())
-            .unwrap_or("");
+        let search = path.file_name().and_then(|s| s.to_str()).unwrap_or("");
 
         let dir = match path.parent() {
-            Some(parent) if !parent.as_os_str().is_empty() => {
-                parent.to_path_buf()
-            }
+            Some(parent) if !parent.as_os_str().is_empty() => parent.to_path_buf(),
             _ => env::current_dir().unwrap(),
         };
 
@@ -336,7 +337,15 @@ pub fn find_files_or_dirs(partial: &str) -> (usize, BTreeSet<String>) {
 
     let btree_set = dir_list
         .filter_map(|f| f.ok())
-        .map(|f| f.file_name().to_string_lossy().into_owned())
+        .map(|f| {
+            let mut name = f.file_name().to_string_lossy().into_owned();
+            if f.file_type().unwrap().is_dir() {
+                name.push(MAIN_SEPARATOR);
+            } else {
+                name.push(' ')
+            }
+            name
+        })
         .filter(|name| name.starts_with(search_str))
         .collect();
     (search_str.len(), btree_set)
