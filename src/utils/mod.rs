@@ -203,7 +203,7 @@ pub fn get_user_input(term: Term) -> Result<String> {
                 {
                     input.clear_chars(clear_len);
                     input.push_str(&format!("{autocomplete}"));
-                    term.clear_line()?;
+                    term.clear_chars(clear_len)?;
                     print!("{autocomplete}");
                 } else {
                     if !bell_rang {
