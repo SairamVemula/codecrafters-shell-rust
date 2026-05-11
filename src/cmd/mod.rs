@@ -15,6 +15,7 @@ pub enum BuiltInCommand {
     Type,
     Pwd,
     Cd,
+    Complete,
     Unknown,
 }
 
@@ -31,6 +32,8 @@ impl From<&str> for BuiltInCommand {
 
             "cd" => Self::Cd,
 
+            "complete" => Self::Complete,
+
             _ => Self::Unknown,
         }
     }
@@ -38,7 +41,7 @@ impl From<&str> for BuiltInCommand {
 
 impl BuiltInCommand {
     pub fn matches(prefix: &str) -> BTreeSet<String> {
-        let cmds = ["exit", "echo", "type", "pwd", "cd"];
+        let cmds = ["exit", "echo", "type", "pwd", "cd", "complete"];
         cmds.iter()
             .filter(|c| c.starts_with(&prefix))
             .map(ToString::to_string)
@@ -96,6 +99,7 @@ pub fn dispatch(cmd_name: &str, ctx: &mut Context) -> Result<(), String> {
         BuiltInCommand::Type => handle_type(ctx),
         BuiltInCommand::Pwd => pwd::handle_pwd(ctx),
         BuiltInCommand::Cd => cd::handle_cd(ctx),
+        BuiltInCommand::Complete => todo!(),
         BuiltInCommand::Unknown => handle_run(cmd_name.to_string(), ctx),
     }
 }
