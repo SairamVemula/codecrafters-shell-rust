@@ -1,5 +1,5 @@
 use std::collections::BTreeSet;
-use std::{env, process};
+use std::{ process};
 
 use crate::cmd::context::Context;
 use crate::utils;

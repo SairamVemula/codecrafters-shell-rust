@@ -1,10 +1,9 @@
 use std::{
     collections::BTreeSet,
-    env,
-    fs::{self, read_dir},
+    env, fs,
     io::{self, Write},
     ops::Bound::{Included, Unbounded},
-    path,
+    path::{self, Path},
 };
 
 use anyhow::{Context, Result};
@@ -310,21 +309,32 @@ pub fn longest_comman_prefix_from_btreeset(
     None
 }
 
-pub fn find_files_or_dirs(prefix: &str) -> BTreeSet<String> {
-    let curr_dir = env::current_dir().unwrap();
-    let dir_list = fs::read_dir(curr_dir).unwrap();
+pub fn find_files_or_dirs(partial: &str) -> (usize, BTreeSet<String>) {
+    let path = Path::new(partial);
 
-    dir_list
+    let search_str = path.file_name().and_then(|s| s.to_str()).unwrap_or("");
+
+    let curr_dir = match path.parent() {
+        Some(parent) if !parent.as_os_str().is_empty() => parent.to_path_buf(),
+        _ => env::current_dir().unwrap(),
+    };
+
+    let Ok(dir_list) = fs::read_dir(curr_dir) else {
+        return (search_str.len(), BTreeSet::new());
+    };
+
+    let btree_set = dir_list
         .filter_map(|f| f.ok())
         .map(|f| f.file_name().to_string_lossy().into_owned())
-        .filter(|name| name.starts_with(prefix))
-        .collect()
+        .filter(|name| name.starts_with(search_str))
+        .collect();
+    (search_str.len(), btree_set)
 }
 
 pub fn autocomplete(input: &str) -> (usize, BTreeSet<String>) {
     let args = parse_args(input);
     if args.len() > 1 {
-        return (args[1].len(), find_files_or_dirs(&args[1]));
+        return find_files_or_dirs(&args[1]);
     }
     (args[0].len(), find_possible_command(&args[0]))
 }
