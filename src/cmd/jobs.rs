@@ -2,7 +2,7 @@ use std::{collections::VecDeque, fmt::Display, process::Child};
 
 use anyhow::Result;
 
-use crate::cmd::context::Context;
+use crate::cmd::context::{AppState, Context, SharedState};
 
 #[derive(PartialEq)]
 pub enum JobStatus {
@@ -48,10 +48,12 @@ impl Job {
 
         for job in state.jobs.iter_mut().rev() {
             match job.process.try_wait() {
-                Ok(Some(_)) => job.status = {
-                    job.cmd.pop();
-                    JobStatus::Done
-                },
+                Ok(Some(_)) => {
+                    job.status = {
+                        job.cmd.pop();
+                        JobStatus::Done
+                    }
+                }
                 Ok(None) => job.status = JobStatus::Running,
                 Err(e) => return Err(anyhow::anyhow!("Error checking wait status: {}", e)),
             }
@@ -62,6 +64,30 @@ impl Job {
 
         for line in output_lines.iter().rev() {
             ctx.stdout.writeln(line).unwrap();
+        }
+
+        state.jobs.retain(|job| job.status != JobStatus::Done);
+
+        Ok(())
+    }
+
+    pub fn check_jobs(state: SharedState) -> Result<()> {
+        let mut state = state.lock().unwrap();
+        let mut symbols = vec!["-", "+"];
+
+        for job in state.jobs.iter_mut().rev() {
+            match job.process.try_wait() {
+                Ok(Some(_)) => {
+                    job.status = {
+                        job.cmd.pop();
+                        let sym = symbols.pop().unwrap_or(" ");
+                        println!("[{}]{} {}{}", job.id, sym, JobStatus::Done, job.cmd);
+                        JobStatus::Done
+                    }
+                }
+                Ok(None) => job.status = JobStatus::Running,
+                Err(e) => return Err(anyhow::anyhow!("Error checking wait status: {}", e)),
+            }
         }
 
         state.jobs.retain(|job| job.status != JobStatus::Done);

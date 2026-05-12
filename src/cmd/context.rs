@@ -65,7 +65,7 @@ pub struct AppState {
     pub next_job_id: usize,
 }
 
-type SharedState = Arc<Mutex<AppState>>;
+pub type SharedState = Arc<Mutex<AppState>>;
 
 impl AppState {
     pub fn new() -> SharedState {

@@ -1,6 +1,6 @@
 use std::io::{self, Write};
 
-use crate::cmd::context::{Context, AppState};
+use crate::cmd::{context::{AppState, Context}, jobs::Job};
 
 mod cmd;
 mod utils;
@@ -8,6 +8,7 @@ mod utils;
 fn main() {
     let state = AppState::new();
     loop {
+        Job::check_jobs(state.clone()).unwrap();
         print!("$ ");
         io::stdout().flush().unwrap();
 
