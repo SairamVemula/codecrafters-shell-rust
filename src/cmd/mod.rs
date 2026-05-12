@@ -4,6 +4,7 @@ use anyhow::{anyhow, Result};
 
 use crate::cmd::complete::Complete;
 use crate::cmd::context::Context;
+use crate::cmd::jobs::Jobs;
 use crate::utils;
 
 pub mod cd;
@@ -11,6 +12,7 @@ pub mod context;
 pub mod echo;
 pub mod pwd;
 pub mod complete;
+pub mod jobs;
 
 pub enum BuiltInCommand {
     Exit,
@@ -19,6 +21,7 @@ pub enum BuiltInCommand {
     Pwd,
     Cd,
     Complete,
+    Jobs,
     Unknown,
 }
 
@@ -31,13 +34,14 @@ impl From<&str> for BuiltInCommand {
             "pwd" => Self::Pwd,
             "cd" => Self::Cd,
             "complete" => Self::Complete,
+            "jobs" => Self::Jobs,
             _ => Self::Unknown,
         }
     }
 }
 
 impl BuiltInCommand {
-    const ALL: &'static [&'static str] = &["exit", "echo", "type", "pwd", "cd", "complete"];
+    const ALL: &'static [&'static str] = &["exit", "echo", "type", "pwd", "cd", "complete", "jobs"];
 
     pub fn matches(prefix: &str) -> BTreeSet<String> {
         Self::ALL.iter()
@@ -90,6 +94,7 @@ pub fn dispatch(cmd_name: &str, ctx: &mut Context) -> Result<()> {
         BuiltInCommand::Pwd => pwd::handle_pwd(ctx),
         BuiltInCommand::Cd => cd::handle_cd(ctx),
         BuiltInCommand::Complete => Complete::handle(ctx),
+        BuiltInCommand::Jobs => Jobs::handle(ctx),
         BuiltInCommand::Unknown => handle_run(cmd_name.to_string(), ctx),
     }
 }
