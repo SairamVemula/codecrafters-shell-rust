@@ -48,7 +48,10 @@ impl Job {
 
         for job in state.jobs.iter_mut().rev() {
             match job.process.try_wait() {
-                Ok(Some(_)) => job.status = JobStatus::Done,
+                Ok(Some(_)) => job.status = {
+                    job.cmd.pop();
+                    JobStatus::Done
+                },
                 Ok(None) => job.status = JobStatus::Running,
                 Err(e) => return Err(anyhow::anyhow!("Error checking wait status: {}", e)),
             }
