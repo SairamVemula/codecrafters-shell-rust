@@ -3,10 +3,12 @@ use std::fs::{File, OpenOptions};
 use std::io::{self, Write};
 use std::path::PathBuf;
 use std::process::Child;
+use std::sync::{Arc, Mutex};
 
 use anyhow::{Result, anyhow};
 use console::Term;
 
+use crate::cmd::jobs::Job;
 use crate::utils;
 
 #[derive(Debug, PartialEq)]
@@ -57,34 +59,41 @@ impl OutputDestination {
 
 pub type CompletionStore = HashMap<String, PathBuf>;
 
-pub struct Store {
+pub struct AppState {
     pub completions: CompletionStore,
-    pub jobs: VecDeque<Child>,
+    pub jobs: VecDeque<Job>,
+    pub next_job_id: usize,
 }
 
-impl Store {
-    pub fn new() -> Self {
-        Self {
+type SharedState = Arc<Mutex<AppState>>;
+
+impl AppState {
+    pub fn new() -> SharedState {
+        Arc::new(Mutex::new(Self {
             completions: CompletionStore::new(),
             jobs: VecDeque::new(),
-        }
+            next_job_id: 1,
+        }))
     }
 }
 
-pub struct Context<'a> {
+pub struct Context {
     pub original_input: String,
     pub name: String,
     pub args: Vec<String>,
     pub stdout: OutputDestination,
     pub stderr: OutputDestination,
-    pub store: &'a mut Store,
+    pub state: SharedState,
     pub is_job: bool,
 }
 
-impl<'a> Context<'a> {
-    pub fn new(store: &'a mut Store) -> Result<Self> {
+impl Context {
+    pub fn new(state: SharedState) -> Result<Self> {
         let mut term = Term::stdout();
-        let input = utils::get_user_input(&mut term, &mut store.completions).unwrap();
+        let input = {
+            let mut state = state.lock().unwrap();
+            utils::get_user_input(&mut term, &mut state.completions).unwrap()
+        };
 
         let mut parsed = utils::parse_args(input.trim());
 
@@ -111,7 +120,7 @@ impl<'a> Context<'a> {
             args: parsed,
             stdout: OutputDestination::Stdout,
             stderr: OutputDestination::Stderr,
-            store,
+            state,
             is_job,
         };
 
@@ -144,9 +153,13 @@ impl<'a> Context<'a> {
         Ok(())
     }
 
-    pub fn add_job(&mut self, job: Child) -> (usize, u32) {
-        let pid = job.id();
-        self.store.jobs.push_back(job);
-        (self.store.jobs.len(), pid)
+    pub fn add_job(&mut self, process: Child) -> (usize, u32) {
+        let mut state = self.state.lock().unwrap();
+        let id = state.next_job_id;
+        let pid = process.id();
+        state.next_job_id += 1;
+        let job = Job::new(id, self.original_input.clone(), process);
+        state.jobs.push_back(job);
+        return (id, pid);
     }
 }

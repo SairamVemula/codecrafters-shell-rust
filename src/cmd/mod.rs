@@ -5,7 +5,7 @@ use std::process::{self, Stdio};
 
 use crate::cmd::complete::Complete;
 use crate::cmd::context::Context;
-use crate::cmd::jobs::Jobs;
+use crate::cmd::jobs::Job;
 use crate::utils;
 
 pub mod cd;
@@ -102,8 +102,8 @@ pub fn handle_run(ctx: &mut Context) -> Result<()> {
         .map_err(|_| anyhow!("{}: command not found", &ctx.name))?;
 
     if ctx.is_job {
-        let (id, pid) = ctx.add_job(child);
-        println!("[{id}] {pid}");
+        let (id,pid) = ctx.add_job(child);
+        println!("[{}] {}", id, pid);
         return Ok(());
     }
 
@@ -123,7 +123,7 @@ pub fn dispatch(ctx: &mut Context) -> Result<()> {
         BuiltInCommand::Pwd => pwd::handle_pwd(ctx),
         BuiltInCommand::Cd => cd::handle_cd(ctx),
         BuiltInCommand::Complete => Complete::handle(ctx),
-        BuiltInCommand::Jobs => Jobs::handle(ctx),
+        BuiltInCommand::Jobs => Job::handle(ctx),
         BuiltInCommand::Unknown => handle_run(ctx),
     }
 }

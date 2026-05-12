@@ -1,17 +1,17 @@
 use std::io::{self, Write};
 
-use crate::cmd::context::{Context, Store};
+use crate::cmd::context::{Context, AppState};
 
 mod cmd;
 mod utils;
 
 fn main() {
-    let mut store = Store::new();
+    let state = AppState::new();
     loop {
         print!("$ ");
         io::stdout().flush().unwrap();
 
-        match Context::new(&mut store) {
+        match Context::new(state.clone()) {
             Ok(mut ctx) => {
                 let result = cmd::dispatch(&mut ctx);
 

@@ -47,31 +47,36 @@ impl Complete {
         let complete = Complete::from(&ctx.args);
 
         let result = match complete.flag {
-            CompleteFlag::Print => match ctx.store.completions.get(&complete.command) {
-                Some(path) => Ok(format!(
-                    "complete -C '{}' {}",
-                    path.display(),
-                    complete.command
-                )),
+            CompleteFlag::Print => {
+                let state = ctx.state.lock().unwrap();
+                match state.completions.get(&complete.command) {
+                    Some(path) => Ok(format!(
+                        "complete -C '{}' {}",
+                        path.display(),
+                        complete.command
+                    )),
 
-                None => Err(anyhow!(
-                    "complete: {}: no completion specification",
-                    complete.command
-                )),
-            },
+                    None => Err(anyhow!(
+                        "complete: {}: no completion specification",
+                        complete.command
+                    )),
+                }
+            }
 
             CompleteFlag::Register => match complete.path {
                 Some(path) => {
-                    ctx.store.completions.insert(complete.command, path);
+                    let mut state = ctx.state.lock().unwrap();
+                    state.completions.insert(complete.command, path);
                     Ok(String::new())
                 }
 
                 None => Err(anyhow!("complete: missing path")),
             },
             CompleteFlag::Remove => {
-                    ctx.store.completions.remove(&complete.command);
-                    Ok(String::new())
-            },
+                let mut state = ctx.state.lock().unwrap();
+                state.completions.remove(&complete.command);
+                Ok(String::new())
+            }
         };
 
         match result {

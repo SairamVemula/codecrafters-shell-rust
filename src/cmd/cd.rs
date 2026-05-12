@@ -1,5 +1,5 @@
-use anyhow::{anyhow, Result};
 use crate::cmd::context::Context;
+use anyhow::{Result, anyhow};
 use std::{env, path::PathBuf};
 
 pub fn handle_cd(ctx: &mut Context) -> Result<()> {
