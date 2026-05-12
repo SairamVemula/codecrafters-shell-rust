@@ -1,6 +1,7 @@
+use anyhow::{Ok, Result, anyhow};
 use std::collections::BTreeSet;
-use std::process;
-use anyhow::{anyhow, Result};
+use std::io::{BufRead, BufReader};
+use std::process::{self, Stdio};
 
 use crate::cmd::complete::Complete;
 use crate::cmd::context::Context;
@@ -8,11 +9,11 @@ use crate::cmd::jobs::Jobs;
 use crate::utils;
 
 pub mod cd;
+pub mod complete;
 pub mod context;
 pub mod echo;
-pub mod pwd;
-pub mod complete;
 pub mod jobs;
+pub mod pwd;
 
 pub enum BuiltInCommand {
     Exit,
@@ -44,7 +45,8 @@ impl BuiltInCommand {
     const ALL: &'static [&'static str] = &["exit", "echo", "type", "pwd", "cd", "complete", "jobs"];
 
     pub fn matches(prefix: &str) -> BTreeSet<String> {
-        Self::ALL.iter()
+        Self::ALL
+            .iter()
             .filter(|c| c.starts_with(prefix))
             .map(|s| s.to_string())
             .collect()
@@ -71,21 +73,43 @@ pub fn handle_type(ctx: &mut Context) -> Result<()> {
     }
 }
 
-pub fn handle_run(cmd: String, ctx: &mut Context) -> Result<()> {
-    let output = process::Command::new(&cmd).args(&ctx.args).output();
+pub fn handle_run(ctx: &mut Context) -> Result<()> {
+    let mut child = process::Command::new(&ctx.name)
+        .args(&ctx.args)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|_| anyhow!("{}: command not found", &ctx.name))?;
 
-    match output {
-        Ok(output) => {
-            ctx.stdout.write(&String::from_utf8_lossy(&output.stdout))?;
-            ctx.stderr.write(&String::from_utf8_lossy(&output.stderr))?;
-            Ok(())
-        }
-        Err(_) => Err(anyhow!("{}: command not found", cmd)),
+    if ctx.is_job {
+        let (id, pid) = ctx.add_job(child);
+        ctx.stdout.writeln(&format!("[{id}] {pid}"))?;
+        return Ok(());
     }
+
+    if let Some(stdout) = child.stdout.take() {
+        let reader = BufReader::new(stdout);
+        for line in reader.lines() {
+            let line = line?;
+            ctx.stdout.writeln(&line)?;
+        }
+    }
+
+    if let Some(stderr) = child.stderr.take() {
+        let reader = BufReader::new(stderr);
+        for line in reader.lines() {
+            let line = line?;
+            ctx.stderr.writeln(&line)?;
+        }
+    }
+
+    child.wait()?;
+
+    Ok(())
 }
 
-pub fn dispatch(cmd_name: &str, ctx: &mut Context) -> Result<()> {
-    match BuiltInCommand::from(cmd_name) {
+pub fn dispatch(ctx: &mut Context) -> Result<()> {
+    match BuiltInCommand::from(ctx.name.as_str()) {
         BuiltInCommand::Exit => {
             process::exit(0);
         }
@@ -95,6 +119,6 @@ pub fn dispatch(cmd_name: &str, ctx: &mut Context) -> Result<()> {
         BuiltInCommand::Cd => cd::handle_cd(ctx),
         BuiltInCommand::Complete => Complete::handle(ctx),
         BuiltInCommand::Jobs => Jobs::handle(ctx),
-        BuiltInCommand::Unknown => handle_run(cmd_name.to_string(), ctx),
+        BuiltInCommand::Unknown => handle_run(ctx),
     }
 }

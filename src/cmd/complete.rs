@@ -47,7 +47,7 @@ impl Complete {
         let complete = Complete::from(&ctx.args);
 
         let result = match complete.flag {
-            CompleteFlag::Print => match ctx.completions.get(&complete.command) {
+            CompleteFlag::Print => match ctx.store.completions.get(&complete.command) {
                 Some(path) => Ok(format!(
                     "complete -C '{}' {}",
                     path.display(),
@@ -62,14 +62,14 @@ impl Complete {
 
             CompleteFlag::Register => match complete.path {
                 Some(path) => {
-                    ctx.completions.insert(complete.command, path);
+                    ctx.store.completions.insert(complete.command, path);
                     Ok(String::new())
                 }
 
                 None => Err(anyhow!("complete: missing path")),
             },
             CompleteFlag::Remove => {
-                    ctx.completions.remove(&complete.command);
+                    ctx.store.completions.remove(&complete.command);
                     Ok(String::new())
             },
         };
