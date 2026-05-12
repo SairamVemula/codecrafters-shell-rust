@@ -74,35 +74,40 @@ pub fn handle_type(ctx: &mut Context) -> Result<()> {
 }
 
 pub fn handle_run(ctx: &mut Context) -> Result<()> {
-    let mut child = process::Command::new(&ctx.name)
-        .args(&ctx.args)
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
+    let mut cmd = process::Command::new(&ctx.name);
+    cmd.args(&ctx.args);
+
+    match &ctx.stdout {
+        crate::cmd::context::OutputDestination::Stdout => {
+            cmd.stdout(Stdio::inherit());
+        }
+        crate::cmd::context::OutputDestination::File(f) => {
+            cmd.stdout(Stdio::from(f.try_clone()?));
+        }
+        _ => {}
+    }
+
+    match &ctx.stderr {
+        crate::cmd::context::OutputDestination::Stderr => {
+            cmd.stderr(Stdio::inherit());
+        }
+        crate::cmd::context::OutputDestination::File(f) => {
+            cmd.stderr(Stdio::from(f.try_clone()?));
+        }
+        _ => {}
+    }
+
+    let child = cmd
         .spawn()
         .map_err(|_| anyhow!("{}: command not found", &ctx.name))?;
 
     if ctx.is_job {
         let (id, pid) = ctx.add_job(child);
-        ctx.stdout.writeln(&format!("[{id}] {pid}"))?;
+        println!("[{id}] {pid}");
         return Ok(());
     }
 
-    if let Some(stdout) = child.stdout.take() {
-        let reader = BufReader::new(stdout);
-        for line in reader.lines() {
-            let line = line?;
-            ctx.stdout.writeln(&line)?;
-        }
-    }
-
-    if let Some(stderr) = child.stderr.take() {
-        let reader = BufReader::new(stderr);
-        for line in reader.lines() {
-            let line = line?;
-            ctx.stderr.writeln(&line)?;
-        }
-    }
-
+    let mut child = child;
     child.wait()?;
 
     Ok(())
