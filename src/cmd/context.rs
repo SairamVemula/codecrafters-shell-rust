@@ -1,4 +1,4 @@
-use std::collections::{HashMap, VecDeque};
+use std::collections::{BTreeSet, HashMap, VecDeque};
 use std::fs::{File, OpenOptions};
 use std::io::{self, Write};
 use std::path::PathBuf;
@@ -62,7 +62,7 @@ pub type CompletionStore = HashMap<String, PathBuf>;
 pub struct AppState {
     pub completions: CompletionStore,
     pub jobs: VecDeque<Job>,
-    pub next_job_id: usize,
+    pub next_job_id: BTreeSet<usize>,
 }
 
 pub type SharedState = Arc<Mutex<AppState>>;
@@ -72,7 +72,7 @@ impl AppState {
         Arc::new(Mutex::new(Self {
             completions: CompletionStore::new(),
             jobs: VecDeque::new(),
-            next_job_id: 1,
+            next_job_id: BTreeSet::new(),
         }))
     }
 }
@@ -155,9 +155,11 @@ impl Context {
 
     pub fn add_job(&mut self, process: Child) -> (usize, u32) {
         let mut state = self.state.lock().unwrap();
-        let id = state.next_job_id;
         let pid = process.id();
-        state.next_job_id += 1;
+        let id = state
+            .next_job_id
+            .pop_first()
+            .unwrap_or(state.jobs.len() + 1);
         let job = Job::new(id, self.original_input.clone(), process);
         state.jobs.push_back(job);
         return (id, pid);

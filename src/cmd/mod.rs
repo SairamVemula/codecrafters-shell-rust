@@ -1,6 +1,5 @@
 use anyhow::{Ok, Result, anyhow};
 use std::collections::BTreeSet;
-use std::io::{BufRead, BufReader};
 use std::process::{self, Stdio};
 
 use crate::cmd::complete::Complete;

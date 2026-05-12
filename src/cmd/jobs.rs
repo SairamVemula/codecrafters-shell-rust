@@ -1,8 +1,8 @@
-use std::{collections::VecDeque, fmt::Display, process::Child};
+use std::{fmt::Display, process::Child};
 
 use anyhow::Result;
 
-use crate::cmd::context::{AppState, Context, SharedState};
+use crate::cmd::context::{Context, SharedState};
 
 #[derive(PartialEq)]
 pub enum JobStatus {
@@ -74,12 +74,14 @@ impl Job {
     pub fn check_jobs(state: SharedState) -> Result<()> {
         let mut state = state.lock().unwrap();
         let mut symbols = vec!["-", "+"];
+        let mut done_ids = vec![];
 
         for job in state.jobs.iter_mut().rev() {
             match job.process.try_wait() {
                 Ok(Some(_)) => {
                     job.status = {
                         job.cmd.pop();
+                        done_ids.push(job.id);
                         let sym = symbols.pop().unwrap_or(" ");
                         println!("[{}]{} {}{}", job.id, sym, JobStatus::Done, job.cmd);
                         JobStatus::Done
@@ -91,6 +93,10 @@ impl Job {
         }
 
         state.jobs.retain(|job| job.status != JobStatus::Done);
+
+        done_ids.iter().for_each(|id| {
+            state.next_job_id.insert(*id);
+        });
 
         Ok(())
     }
