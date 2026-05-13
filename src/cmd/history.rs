@@ -13,7 +13,7 @@ impl History {
             .and_then(|s| s.parse::<usize>().ok());
 
         let history = &guard.history;
-        let end = history.len().saturating_sub(1);
+        let end = history.len();
 
         let start = if let Some(n) = limit {
             end.saturating_sub(n)
