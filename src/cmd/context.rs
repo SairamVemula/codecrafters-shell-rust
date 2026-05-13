@@ -115,15 +115,15 @@ pub struct Context {
 
 impl Context {
     pub fn new(state: SharedState, args: Option<Vec<String>>) -> Result<Self> {
-        let mut parsed = match args {
-            Some(args) => args,
+        let (mut parsed, recursive) = match args {
+            Some(args) => (args, true),
             None => {
                 let input = {
                     let mut term = Term::stdout();
                     let mut guard = state.lock().map_err(|_| anyhow!("Lock poisoned"))?;
                     utils::get_user_input(&mut term, &mut guard.completions)?
                 };
-                utils::parse_args(input.trim())
+                (utils::parse_args(input.trim()), false)
             }
         };
 
@@ -131,7 +131,7 @@ impl Context {
             return Err(anyhow!("empty input"));
         }
         let name = parsed.remove(0);
-        
+
         let (pipes, mut redirections) = utils::parse_redirections(&mut parsed);
 
         let is_job = if let Some(s) = parsed.last()
@@ -156,25 +156,22 @@ impl Context {
             stdin: None,
         };
 
-        if pipes.len() > 0 {
-            if redirections.len() > 0 {
+        if !recursive {
+            if pipes.len() > 0 {
                 let redirection = redirections.remove(0);
                 ctx.apply_redirections(vec![redirection])?;
-            }
 
-            for (i, pipe) in pipes.iter().enumerate() {
-                let mut pipe_ctx = Self::new(state.clone(), Some(pipe.to_vec()))?;
-                if redirections.len() > 0 {
-                    let redirection = redirections.remove(i);
+                for pipe in pipes {
+                    let mut pipe_ctx = Self::new(state.clone(), Some(pipe.to_vec()))?;
+                    let redirection = redirections.remove(0);
                     pipe_ctx.apply_redirections(vec![redirection])?;
+                    ctx.pipes.push(pipe_ctx);
                 }
-                ctx.pipes.push(pipe_ctx);
+            } else {
+                ctx.apply_redirections(redirections.clone())?;
+                ctx.redirections = redirections;
             }
-        } else {
-            ctx.apply_redirections(redirections.clone())?;
-            ctx.redirections = redirections;
         }
-
         Ok(ctx)
     }
 
@@ -210,6 +207,7 @@ impl Context {
                 }
                 RedirectionType::StdoutPipe => {
                     self.stdout = OutputDestination::Piped(redir.pipe_writer);
+                    self.stdin = redir.pipe_reader;
                 }
                 RedirectionType::StdinPipe => {
                     self.stdin = redir.pipe_reader;
