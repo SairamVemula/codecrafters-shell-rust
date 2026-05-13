@@ -95,7 +95,7 @@ pub fn handle_run(ctx: &mut Context) -> Result<()> {
         }
         _ => {}
     }
-    
+
     match &ctx.stderr {
         OutputDestination::Stderr => {
             cmd.stderr(Stdio::inherit());
@@ -111,13 +111,13 @@ pub fn handle_run(ctx: &mut Context) -> Result<()> {
         .map_err(|_| anyhow!("{}: command not found", &ctx.name))?;
 
     if ctx.is_job {
-        let (id,pid) = ctx.add_job(child);
+        let (id, pid) = ctx.add_job(child);
         println!("[{}] {}", id, pid);
         return Ok(());
     }
 
-    let mut child = child;
-    child.wait()?;
+    // let mut child = child;
+    // child.wait()?;
 
     Ok(())
 }
