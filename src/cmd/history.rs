@@ -123,8 +123,8 @@ impl History {
 
             let history = reader
                 .lines()
-                .map(|l| l.unwrap())
-                .filter(|l| !l.trim().is_empty());
+                .map(|l| l.ok()).flatten();
+                
 
             let mut guard = state.lock().unwrap();
             guard.history.extend(history);
