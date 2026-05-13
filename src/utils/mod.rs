@@ -273,27 +273,50 @@ pub fn get_user_input(mut term: &mut Term, state: &mut SharedState) -> Result<St
             console::Key::ArrowUp => {
                 let guard = state.lock().unwrap();
                 let len = guard.history.len();
-                let index = cursor.unwrap_or(len - 1);
-                term.clear_line()?;
-                input.clear();
-                input.push_str(guard.history.get(index).unwrap());
-                cursor = Some((len + (index - 1)) % len);
-                print!("{input}")
+                if len > 0 {
+                    let current_idx = cursor.unwrap_or(len);
+
+                    if current_idx > 0 {
+                        let new_idx = current_idx - 1;
+                        if let Some(s) = guard.history.get(new_idx) {
+                            term.clear_line()?;
+                            input.clear();
+                            input.push_str(s);
+                            cursor = Some(new_idx);
+                            print!("$ {input}");
+                        }
+                    }
+                }
             }
             console::Key::ArrowDown => {
                 let guard = state.lock().unwrap();
-                let len = guard.history.len();
-                let index = cursor.unwrap_or(len - 1);
-                term.clear_line()?;
-                input.clear();
-                input.push_str(guard.history.get(index).unwrap());
-                cursor = Some((index + 1) % len);
-                print!("{input}")
+                if let Some(index) = cursor {
+                    let len = guard.history.len();
+                    let next_idx = index + 1;
+
+                    if next_idx < len {
+                        if let Some(s) = guard.history.get(next_idx) {
+                            term.clear_line()?;
+                            input.clear();
+                            input.push_str(s);
+                            cursor = Some(next_idx);
+                            print!("$ {input}");
+                        }
+                    } else {
+                        term.clear_line()?;
+                        input.clear();
+                        cursor = None;
+                        print!("$ ");
+                    }
+                }
             }
             _ => {}
         };
         io::stdout().flush()?;
     }
+    let mut guard = state.lock().unwrap();
+    guard.history.push(input.clone());
+
     println!();
     Ok(input)
 }
