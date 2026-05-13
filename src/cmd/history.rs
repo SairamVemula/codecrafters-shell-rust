@@ -127,7 +127,6 @@ impl History {
             let mut guard = state.lock().unwrap();
             guard.history.extend(history);
             guard.history_pointer = guard.history.len();
-            println!("p = {}", guard.history_pointer);
         }
         Ok(())
     }
