@@ -48,22 +48,12 @@ impl History {
                         .ok(),
                     limit: None,
                 },
-                "-w" => Self {
+                "-w" | "-a" => Self {
                     flag: HistoryFlag::Write,
                     file: OpenOptions::new()
                         .create(true)
                         .write(true)
                         .truncate(true)
-                        .open(args.get(1).unwrap())
-                        .ok(),
-                    limit: None,
-                },
-                "-a" => Self {
-                    flag: HistoryFlag::Append,
-                    file: OpenOptions::new()
-                        .create(true)
-                        .write(true)
-                        .append(true)
                         .open(args.get(1).unwrap())
                         .ok(),
                     limit: None,
@@ -90,7 +80,8 @@ impl History {
         let mut h = History::parse(&ctx.args);
         match h.flag {
             HistoryFlag::Read => h.read(&mut ctx.state),
-            HistoryFlag::Write | HistoryFlag::Append => h.write(&mut ctx.state),
+            HistoryFlag::Write => h.write(&mut ctx.state),
+            HistoryFlag::Append => h.append(&mut ctx.state),
             HistoryFlag::Print => h.print(ctx),
         }
     }
@@ -102,6 +93,10 @@ impl History {
                 writeln!(file, "{}", line)?;
             }
         }
+        Ok(())
+    }
+    pub fn append(&mut self, state: &mut SharedState) -> Result<()> {
+        self.write(state)?;
         Ok(())
     }
     pub fn read(&mut self, state: &mut SharedState) -> Result<()> {
@@ -129,6 +124,16 @@ impl History {
             ctx.stdout
                 .writeln(&format!("    {} {}", start + i + 1, cmd))?;
         }
+        Ok(())
+    }
+
+    pub fn load(&mut self, state: &mut SharedState) -> Result<()> {
+        self.read(state)?;
+        Ok(())
+    }
+
+    pub fn pursist(&mut self, state: &mut SharedState) -> Result<()> {
+        self.append(state)?;
         Ok(())
     }
 }
