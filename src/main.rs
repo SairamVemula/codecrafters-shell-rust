@@ -5,15 +5,17 @@ use std::{
 };
 
 use crate::cmd::{
-    context::{AppState, Context},
-    jobs::Job,
+    context::{AppState, Context}, history::History, jobs::Job
 };
 
 mod cmd;
 mod utils;
 
 fn main() {
-    let state = AppState::new();
+    let mut state = AppState::new();
+    if let Some(mut history) = History::new() {
+        let _ = history.load(&mut state);
+    }
     loop {
         Job::check_jobs(state.clone()).unwrap();
         print!("$ ");

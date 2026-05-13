@@ -12,9 +12,9 @@ pub mod cd;
 pub mod complete;
 pub mod context;
 pub mod echo;
+pub mod history;
 pub mod jobs;
 pub mod pwd;
-pub mod history;
 
 pub enum BuiltInCommand {
     Exit,
@@ -45,7 +45,9 @@ impl From<&str> for BuiltInCommand {
 }
 
 impl BuiltInCommand {
-    const ALL: &'static [&'static str] = &["exit", "echo", "type", "pwd", "cd", "complete", "jobs", "history"];
+    const ALL: &'static [&'static str] = &[
+        "exit", "echo", "type", "pwd", "cd", "complete", "jobs", "history",
+    ];
 
     pub fn matches(prefix: &str) -> BTreeSet<String> {
         Self::ALL
@@ -129,6 +131,9 @@ pub fn handle_run(ctx: &mut Context) -> Result<()> {
 pub fn dispatch(ctx: &mut Context) -> Result<()> {
     match BuiltInCommand::from(ctx.name.as_str()) {
         BuiltInCommand::Exit => {
+            if let Some(mut history) = History::new() {
+                let _ = history.pursist(&mut ctx.state);
+            }
             process::exit(0);
         }
         BuiltInCommand::Echo => echo::handle_echo(ctx),
