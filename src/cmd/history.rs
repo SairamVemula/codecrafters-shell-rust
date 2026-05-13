@@ -3,23 +3,30 @@ use anyhow::{Ok, Result};
 use crate::cmd::context::Context;
 
 pub struct History;
+
 impl History {
     pub fn handle(ctx: &mut Context) -> Result<()> {
         let guard = ctx.state.lock().unwrap();
 
-        let limit = ctx.args.get(0)
+        let limit = ctx.args
+            .get(0)
             .and_then(|s| s.parse::<usize>().ok());
 
-        let iter = guard.history.iter();
+        let history = &guard.history;
+        let end = history.len().saturating_sub(1);
 
-        if let Some(n) = limit {
-            for (i, cmd) in iter.enumerate().rev().take(n) {
-                ctx.stdout.writeln(&format!("    {} {}", i + 1, cmd))?;
-            }
+        let start = if let Some(n) = limit {
+            end.saturating_sub(n)
         } else {
-            for (i, cmd) in iter.enumerate() {
-                ctx.stdout.writeln(&format!("    {} {}", i + 1, cmd))?;
-            }
+            0
+        };
+
+        for (i, cmd) in history[start..end].iter().enumerate() {
+            ctx.stdout.writeln(&format!(
+                "    {} {}",
+                start + i + 1,
+                cmd
+            ))?;
         }
 
         Ok(())
