@@ -87,6 +87,7 @@ pub struct AppState {
     pub completions: CompletionStore,
     pub jobs: VecDeque<Job>,
     pub next_job_id: BTreeSet<usize>,
+    pub history: Vec<String>
 }
 
 pub type SharedState = Arc<Mutex<AppState>>;
@@ -97,6 +98,7 @@ impl AppState {
             completions: CompletionStore::new(),
             jobs: VecDeque::new(),
             next_job_id: BTreeSet::new(),
+            history: vec![],
         }))
     }
 }
@@ -121,7 +123,9 @@ impl Context {
                 let input = {
                     let mut term = Term::stdout();
                     let mut guard = state.lock().map_err(|_| anyhow!("Lock poisoned"))?;
-                    utils::get_user_input(&mut term, &mut guard.completions)?
+                    let input = utils::get_user_input(&mut term, &mut guard.completions)?;
+                    guard.history.push(input.clone());
+                    input
                 };
                 (utils::parse_args(input.trim()), false)
             }
@@ -130,6 +134,7 @@ impl Context {
         if parsed.is_empty() {
             return Err(anyhow!("empty input"));
         }
+
         let name = parsed.remove(0);
 
         let (pipes, mut redirections) = utils::parse_redirections(&mut parsed);

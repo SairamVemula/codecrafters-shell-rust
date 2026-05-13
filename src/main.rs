@@ -20,7 +20,9 @@ fn main() {
         io::stdout().flush().unwrap();
 
         match Context::new(state.clone(), None) {
-            Ok(ctx) => execute(ctx),
+            Ok(ctx) => {
+                execute(ctx)
+            },
             Err(_) => continue,
         }
     }
