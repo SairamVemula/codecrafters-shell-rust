@@ -13,9 +13,9 @@ mod utils;
 
 fn main() {
     let mut state = AppState::new();
-    if let Some(mut history) = History::new() {
-        let _ = history.load(&mut state);
-    }
+    // if let Some(mut history) = History::new() {
+    //     let _ = history.load(&mut state);
+    // }
     loop {
         Job::check_jobs(state.clone()).unwrap();
         print!("$ ");
