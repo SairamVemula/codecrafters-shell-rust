@@ -1,4 +1,8 @@
-use std::io::{self, Write};
+use std::{
+    collections::VecDeque,
+    io::{self, Write},
+    thread,
+};
 
 use crate::cmd::{
     context::{AppState, Context},
@@ -21,15 +25,18 @@ fn main() {
         }
     }
 }
-
 fn execute(mut ctx: Context) {
-    let result = cmd::dispatch(&mut ctx);
+    let mut pipes = VecDeque::from(std::mem::take(&mut ctx.pipes));
 
-    if let Err(e) = result {
-        ctx.stderr.writeln(&format!("{e}")).ok();
-    }
+    pipes.push_front(ctx);
 
-    for pipe in ctx.pipes {
-        execute(pipe);
+    if let Some(last_pipe) = pipes.pop_back() {
+        for pipe in pipes {
+            thread::spawn(move || execute(pipe));
+        }
+        let mut final_ctx = last_pipe;
+        if let Err(e) = cmd::dispatch(&mut final_ctx) {
+            let _ = final_ctx.stderr.writeln(&format!("{e}"));
+        }
     }
 }

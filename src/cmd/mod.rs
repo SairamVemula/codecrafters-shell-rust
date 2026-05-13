@@ -116,8 +116,8 @@ pub fn handle_run(ctx: &mut Context) -> Result<()> {
         return Ok(());
     }
 
-    // let mut child = child;
-    // child.wait()?;
+    let mut child = child;
+    child.wait()?;
 
     Ok(())
 }
