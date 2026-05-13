@@ -115,11 +115,11 @@ pub struct Context {
 
 impl Context {
     pub fn new(state: SharedState, args: Option<Vec<String>>) -> Result<Self> {
-        let mut term = Term::stdout();
         let mut parsed = match args {
             Some(args) => args,
             None => {
                 let input = {
+                    let mut term = Term::stdout();
                     let mut guard = state.lock().map_err(|_| anyhow!("Lock poisoned"))?;
                     utils::get_user_input(&mut term, &mut guard.completions)?
                 };
@@ -130,11 +130,9 @@ impl Context {
         if parsed.is_empty() {
             return Err(anyhow!("empty input"));
         }
-
         let name = parsed.remove(0);
-
+        
         let (pipes, mut redirections) = utils::parse_redirections(&mut parsed);
-
 
         let is_job = if let Some(s) = parsed.last()
             && s == "&"
@@ -146,7 +144,6 @@ impl Context {
         };
 
         // ctx
-
         let mut ctx = Self {
             name,
             args: parsed,
@@ -156,7 +153,7 @@ impl Context {
             is_job,
             pipes: vec![],
             redirections: vec![],
-            stdin: None
+            stdin: None,
         };
 
         if pipes.len() > 0 {
@@ -214,9 +211,9 @@ impl Context {
                 RedirectionType::StdoutPipe => {
                     self.stdout = OutputDestination::Piped(redir.pipe_writer);
                 }
-                RedirectionType::StdinPipe  => {
+                RedirectionType::StdinPipe => {
                     self.stdin = redir.pipe_reader;
-                },
+                }
             }
         }
         Ok(())

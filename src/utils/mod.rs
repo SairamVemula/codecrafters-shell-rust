@@ -212,7 +212,7 @@ pub fn parse_pipes(args: &mut Vec<String>) -> (Vec<Vec<String>>, Vec<Redirection
                     pipes.push(std::mem::take(&mut pipe));
                 }
                 is_pipe = true;
-                args.remove(1);
+                args.remove(i);
                 continue;
             }
             "&" | ">" | "1>" | ">>" | "1>>" | "2>" | "2>>" => {
@@ -227,7 +227,7 @@ pub fn parse_pipes(args: &mut Vec<String>) -> (Vec<Vec<String>>, Vec<Redirection
             _ => {
                 if is_pipe {
                     pipe.push(arg.clone());
-                    args.remove(1);
+                    args.remove(i);
                     continue;
                 }
             }
