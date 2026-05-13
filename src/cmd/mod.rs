@@ -3,7 +3,7 @@ use std::collections::BTreeSet;
 use std::process::{self, Stdio};
 
 use crate::cmd::complete::Complete;
-use crate::cmd::context::Context;
+use crate::cmd::context::{Context, OutputDestination};
 use crate::cmd::jobs::Job;
 use crate::utils;
 
@@ -76,21 +76,31 @@ pub fn handle_run(ctx: &mut Context) -> Result<()> {
     let mut cmd = process::Command::new(&ctx.name);
     cmd.args(&ctx.args);
 
-    match &ctx.stdout {
-        crate::cmd::context::OutputDestination::Stdout => {
+    match ctx.stdin.take() {
+        Some(reader) => cmd.stdin(reader),
+        None => cmd.stdin(Stdio::inherit()),
+    };
+
+    match &mut ctx.stdout {
+        OutputDestination::Stdout => {
             cmd.stdout(Stdio::inherit());
         }
-        crate::cmd::context::OutputDestination::File(f) => {
+        OutputDestination::File(f) => {
             cmd.stdout(Stdio::from(f.try_clone()?));
+        }
+        OutputDestination::Piped(w) => {
+            if let Some(w) = w.take() {
+                cmd.stdout(w);
+            }
         }
         _ => {}
     }
-
+    
     match &ctx.stderr {
-        crate::cmd::context::OutputDestination::Stderr => {
+        OutputDestination::Stderr => {
             cmd.stderr(Stdio::inherit());
         }
-        crate::cmd::context::OutputDestination::File(f) => {
+        OutputDestination::File(f) => {
             cmd.stderr(Stdio::from(f.try_clone()?));
         }
         _ => {}

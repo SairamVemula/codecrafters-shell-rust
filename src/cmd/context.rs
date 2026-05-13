@@ -1,6 +1,6 @@
 use std::collections::{BTreeSet, HashMap, VecDeque};
 use std::fs::{File, OpenOptions};
-use std::io::{self, Write};
+use std::io::{self, PipeReader, PipeWriter, Write};
 use std::path::PathBuf;
 use std::process::Child;
 use std::sync::{Arc, Mutex};
@@ -9,26 +9,43 @@ use anyhow::{Result, anyhow};
 use console::Term;
 
 use crate::cmd::jobs::Job;
-use crate::utils;
+use crate::utils::{self, unparse_args};
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum RedirectionType {
     StdoutWrite,
     StdoutAppend,
     StderrWrite,
     StderrAppend,
+    StdoutPipe,
+    StdinPipe,
 }
 
 #[derive(Debug)]
 pub struct Redirection {
     pub r_type: RedirectionType,
-    pub file: String,
+    pub file: Option<String>,
+    pub pipe_reader: Option<PipeReader>,
+    pub pipe_writer: Option<PipeWriter>,
 }
 
+impl Clone for Redirection {
+    fn clone(&self) -> Self {
+        Self {
+            r_type: self.r_type,
+            file: self.file.clone(),
+            pipe_reader: None,
+            pipe_writer: None,
+        }
+    }
+}
+
+#[derive(Debug)]
 pub enum OutputDestination {
     Stdout,
     Stderr,
     File(File),
+    Piped(Option<PipeWriter>),
 }
 
 impl OutputDestination {
@@ -47,6 +64,13 @@ impl OutputDestination {
             OutputDestination::File(file) => {
                 write!(file, "{}", content)?;
                 file.flush()
+            }
+            OutputDestination::Piped(writer) => {
+                if let Some(writer) = writer {
+                    write!(writer, "{}", content)?;
+                    return writer.flush();
+                }
+                Ok(())
             }
         }
     }
@@ -78,24 +102,30 @@ impl AppState {
 }
 
 pub struct Context {
-    pub original_input: String,
     pub name: String,
     pub args: Vec<String>,
+    pub stdin: Option<PipeReader>,
     pub stdout: OutputDestination,
     pub stderr: OutputDestination,
     pub state: SharedState,
     pub is_job: bool,
+    pub pipes: Vec<Context>,
+    pub redirections: Vec<Redirection>,
 }
 
 impl Context {
-    pub fn new(state: SharedState) -> Result<Self> {
+    pub fn new(state: SharedState, args: Option<Vec<String>>) -> Result<Self> {
         let mut term = Term::stdout();
-        let input = {
-            let mut state = state.lock().unwrap();
-            utils::get_user_input(&mut term, &mut state.completions).unwrap()
+        let mut parsed = match args {
+            Some(args) => args,
+            None => {
+                let input = {
+                    let mut guard = state.lock().map_err(|_| anyhow!("Lock poisoned"))?;
+                    utils::get_user_input(&mut term, &mut guard.completions)?
+                };
+                utils::parse_args(input.trim())
+            }
         };
-
-        let mut parsed = utils::parse_args(input.trim());
 
         if parsed.is_empty() {
             return Err(anyhow!("empty input"));
@@ -103,7 +133,8 @@ impl Context {
 
         let name = parsed.remove(0);
 
-        let redirections = utils::parse_redirections(&mut parsed);
+        let (pipes, mut redirections) = utils::parse_redirections(&mut parsed);
+
 
         let is_job = if let Some(s) = parsed.last()
             && s == "&"
@@ -114,17 +145,39 @@ impl Context {
             false
         };
 
+        // ctx
+
         let mut ctx = Self {
-            original_input: input,
             name,
             args: parsed,
             stdout: OutputDestination::Stdout,
             stderr: OutputDestination::Stderr,
-            state,
+            state: state.clone(),
             is_job,
+            pipes: vec![],
+            redirections: vec![],
+            stdin: None
         };
 
-        ctx.apply_redirections(redirections)?;
+        if pipes.len() > 0 {
+            if redirections.len() > 0 {
+                let redirection = redirections.remove(0);
+                ctx.apply_redirections(vec![redirection])?;
+            }
+
+            for (i, pipe) in pipes.iter().enumerate() {
+                let mut pipe_ctx = Self::new(state.clone(), Some(pipe.to_vec()))?;
+                if redirections.len() > 0 {
+                    let redirection = redirections.remove(i);
+                    pipe_ctx.apply_redirections(vec![redirection])?;
+                }
+                ctx.pipes.push(pipe_ctx);
+            }
+        } else {
+            ctx.apply_redirections(redirections.clone())?;
+            ctx.redirections = redirections;
+        }
+
         Ok(ctx)
     }
 
@@ -134,23 +187,68 @@ impl Context {
                 redir.r_type,
                 RedirectionType::StdoutAppend | RedirectionType::StderrAppend
             );
-            let file = OpenOptions::new()
-                .create(true)
-                .write(true)
-                .append(append)
-                .truncate(!append)
-                .open(&redir.file)?;
 
             match redir.r_type {
                 RedirectionType::StdoutWrite | RedirectionType::StdoutAppend => {
-                    self.stdout = OutputDestination::File(file);
+                    if let Some(path) = redir.file {
+                        let file = OpenOptions::new()
+                            .create(true)
+                            .write(true)
+                            .append(append)
+                            .truncate(!append)
+                            .open(path)?;
+                        self.stdout = OutputDestination::File(file);
+                    }
                 }
                 RedirectionType::StderrWrite | RedirectionType::StderrAppend => {
-                    self.stderr = OutputDestination::File(file);
+                    if let Some(path) = redir.file {
+                        let file = OpenOptions::new()
+                            .create(true)
+                            .write(true)
+                            .append(append)
+                            .truncate(!append)
+                            .open(path)?;
+                        self.stderr = OutputDestination::File(file);
+                    }
                 }
+                RedirectionType::StdoutPipe => {
+                    self.stdout = OutputDestination::Piped(redir.pipe_writer);
+                }
+                RedirectionType::StdinPipe  => {
+                    self.stdin = redir.pipe_reader;
+                },
             }
         }
         Ok(())
+    }
+
+    pub fn to_string(&self) -> String {
+        let mut parts = vec![self.name.clone()];
+        parts.extend(self.args.clone());
+        let mut cmd = unparse_args(&parts);
+
+        for pipe in &self.pipes {
+            cmd.push_str(&format!(" | {}", pipe.to_string()));
+        }
+
+        for redir in &self.redirections {
+            if let Some(file) = &redir.file {
+                let symbol = match redir.r_type {
+                    RedirectionType::StdoutWrite => ">",
+                    RedirectionType::StdoutAppend => ">>",
+                    RedirectionType::StderrWrite => "2>",
+                    RedirectionType::StderrAppend => "2>>",
+                    _ => continue,
+                };
+                cmd.push_str(&format!(" {} {}", symbol, file));
+            }
+        }
+
+        if self.is_job {
+            cmd.push_str(" &");
+        }
+
+        cmd
     }
 
     pub fn add_job(&mut self, process: Child) -> (usize, u32) {
@@ -160,7 +258,7 @@ impl Context {
             .next_job_id
             .pop_first()
             .unwrap_or(state.jobs.len() + 1);
-        let job = Job::new(id, self.original_input.clone(), process);
+        let job = Job::new(id, self.to_string(), process);
         state.jobs.push_back(job);
         return (id, pid);
     }

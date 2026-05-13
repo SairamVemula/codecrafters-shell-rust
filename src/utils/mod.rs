@@ -9,6 +9,7 @@ use std::{
 use anyhow::{Context, Result};
 use console::Term;
 
+use crate::cmd::context::{Redirection, RedirectionType};
 use crate::cmd::{BuiltInCommand, complete::Complete, context::CompletionStore};
 
 #[cfg(windows)]
@@ -125,10 +126,40 @@ pub fn parse_args(input: &str) -> Vec<String> {
     args
 }
 
-use crate::cmd::context::{Redirection, RedirectionType};
+pub fn unparse_args(args: &[String]) -> String {
+    args.iter()
+        .map(|arg| {
+            if arg.is_empty() {
+                return String::from("\"\"");
+            }
 
-pub fn parse_redirections(args: &mut Vec<String>) -> Vec<Redirection> {
-    let mut redirections = vec![];
+            let needs_quotes = arg
+                .chars()
+                .any(|c| c.is_whitespace() || c == '\'' || c == '"' || c == '\\');
+
+            if !needs_quotes {
+                arg.clone()
+            } else {
+                let mut escaped = String::from("\"");
+                for ch in arg.chars() {
+                    match ch {
+                        '"' | '\\' => {
+                            escaped.push('\\');
+                            escaped.push(ch);
+                        }
+                        _ => escaped.push(ch),
+                    }
+                }
+                escaped.push('"');
+                escaped
+            }
+        })
+        .collect::<Vec<String>>()
+        .join(" ")
+}
+
+pub fn parse_redirections(args: &mut Vec<String>) -> (Vec<Vec<String>>, Vec<Redirection>) {
+    let (pipes, mut redirections) = parse_pipes(args);
     let mut i = 0;
     while i < args.len() {
         let arg = &args[i];
@@ -144,13 +175,77 @@ pub fn parse_redirections(args: &mut Vec<String>) -> Vec<Redirection> {
             if i + 1 < args.len() {
                 let file = args.remove(i + 1);
                 args.remove(i);
-                redirections.push(Redirection { r_type, file });
+                redirections.push(Redirection {
+                    r_type,
+                    file: Some(file),
+                    pipe_reader: None,
+                    pipe_writer: None,
+                });
                 continue;
             }
         }
         i += 1;
     }
-    redirections
+    (pipes, redirections)
+}
+pub fn parse_pipes(args: &mut Vec<String>) -> (Vec<Vec<String>>, Vec<Redirection>) {
+    let mut redirections = vec![];
+    let mut pipes = vec![];
+    let mut pipe = vec![];
+    let mut i = 0;
+    let mut is_pipe = false;
+    let mut pipe_reader = None;
+
+    while i < args.len() {
+        let arg = &args[i];
+        match arg.as_str() {
+            "|" => {
+                let (reader, write) = io::pipe().unwrap();
+                redirections.push(Redirection {
+                    r_type: RedirectionType::StdoutPipe,
+                    file: None,
+                    pipe_reader: pipe_reader.take(),
+                    pipe_writer: Some(write),
+                });
+                pipe_reader = Some(reader);
+                if is_pipe {
+                    pipes.push(std::mem::take(&mut pipe));
+                }
+                is_pipe = true;
+                args.remove(1);
+                continue;
+            }
+            "&" | ">" | "1>" | ">>" | "1>>" | "2>" | "2>>" => {
+                redirections.push(Redirection {
+                    r_type: RedirectionType::StdinPipe,
+                    file: None,
+                    pipe_reader: pipe_reader.take(),
+                    pipe_writer: None,
+                });
+                break;
+            }
+            _ => {
+                if is_pipe {
+                    pipe.push(arg.clone());
+                    args.remove(1);
+                    continue;
+                }
+            }
+        };
+        i += 1;
+    }
+
+    if pipe.len() > 0 {
+        redirections.push(Redirection {
+            r_type: RedirectionType::StdinPipe,
+            file: None,
+            pipe_reader: pipe_reader.take(),
+            pipe_writer: None,
+        });
+        pipes.push(pipe);
+    }
+
+    (pipes, redirections)
 }
 
 pub fn get_user_input(mut term: &mut Term, completions: &mut CompletionStore) -> Result<String> {
