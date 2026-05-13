@@ -13,7 +13,7 @@ impl History {
         let iter = guard.history.iter();
 
         if let Some(n) = limit {
-            for (i, cmd) in iter.take(n).enumerate() {
+            for (i, cmd) in iter.enumerate().rev().take(n) {
                 ctx.stdout.writeln(&format!("    {} {}", i + 1, cmd))?;
             }
         } else {
