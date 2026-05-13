@@ -126,14 +126,4 @@ impl History {
         }
         Ok(())
     }
-
-    pub fn load(&mut self, state: &mut SharedState) -> Result<()> {
-        self.read(state)?;
-        Ok(())
-    }
-
-    pub fn pursist(&mut self, state: &mut SharedState) -> Result<()> {
-        self.append(state)?;
-        Ok(())
-    }
 }
