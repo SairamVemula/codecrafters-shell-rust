@@ -26,7 +26,7 @@ impl History {
         let file = OpenOptions::new()
             .create(true)
             .write(true)
-            .truncate(true)
+            .append(true)
             .open(path)
             .ok()?; // Returns None if the file cannot be opened
 
@@ -64,7 +64,6 @@ impl History {
                         .create(true)
                         .write(true)
                         .append(true)
-                        .truncate(true)
                         .open(args.get(1).unwrap())
                         .ok(),
                     limit: None,
@@ -91,8 +90,7 @@ impl History {
         let mut h = History::parse(&ctx.args);
         match h.flag {
             HistoryFlag::Read => h.read(&mut ctx.state),
-            HistoryFlag::Write => h.write(&mut ctx.state),
-            HistoryFlag::Append => h.append(&mut ctx.state),
+            HistoryFlag::Write | HistoryFlag::Append => h.write(&mut ctx.state),
             HistoryFlag::Print => h.print(ctx),
         }
     }
@@ -100,20 +98,9 @@ impl History {
     pub fn write(&mut self, state: &mut SharedState) -> Result<()> {
         if let Some(file) = &mut self.file {
             let guard = state.lock().unwrap();
-            let mut history = guard.history.join("\n");
-            history.push('\n');
-
-            write!(file, "{}", history.as_str())?;
-        }
-        Ok(())
-    }
-    pub fn append(&mut self, state: &mut SharedState) -> Result<()> {
-        if let Some(file) = &mut self.file {
-            let guard = state.lock().unwrap();
-            let mut history = guard.history.join("\n");
-            history.push('\n');
-
-            write!(file, "{}", history.as_str())?;
+            for line in &guard.history {
+                writeln!(file, "{}", line)?;
+            }
         }
         Ok(())
     }
@@ -121,10 +108,7 @@ impl History {
         if let Some(file) = &self.file {
             let reader = BufReader::new(file);
 
-            let history = reader
-                .lines()
-                .map(|l| l.ok()).flatten();
-                
+            let history = reader.lines().map(|l| l.ok()).flatten();
 
             let mut guard = state.lock().unwrap();
             guard.history.extend(history);
@@ -145,16 +129,6 @@ impl History {
             ctx.stdout
                 .writeln(&format!("    {} {}", start + i + 1, cmd))?;
         }
-        Ok(())
-    }
-
-    pub fn load(&mut self, state: &mut SharedState) -> Result<()> {
-        self.read(state)?;
-        Ok(())
-    }
-
-    pub fn pursist(&mut self, state: &mut SharedState) -> Result<()> {
-        self.append(state)?;
         Ok(())
     }
 }
