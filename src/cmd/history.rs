@@ -18,7 +18,6 @@ pub struct History {
     pub flag: HistoryFlag,
     pub file: Option<File>,
     pub limit: Option<usize>,
-    pointer: Option<usize>,
 }
 
 impl History {
@@ -35,7 +34,6 @@ impl History {
             flag: HistoryFlag::Append,
             file: Some(file),
             limit: None,
-            pointer: None,
         })
     }
 
@@ -49,7 +47,6 @@ impl History {
                         .open(args.get(1).unwrap())
                         .ok(),
                     limit: None,
-                    pointer: None,
                 },
                 "-w" => Self {
                     flag: HistoryFlag::Write,
@@ -60,7 +57,6 @@ impl History {
                         .open(args.get(1).unwrap())
                         .ok(),
                     limit: None,
-                    pointer: None,
                 },
                 "-a" => Self {
                     flag: HistoryFlag::Append,
@@ -71,7 +67,6 @@ impl History {
                         .open(args.get(1).unwrap())
                         .ok(),
                     limit: None,
-                    pointer: None,
                 },
                 _ => {
                     let limit = args.get(0).and_then(|s| s.parse::<usize>().ok());
@@ -80,7 +75,6 @@ impl History {
                         flag: HistoryFlag::Print,
                         file: None,
                         limit,
-                        pointer: None,
                     }
                 }
             },
@@ -88,7 +82,6 @@ impl History {
                 flag: HistoryFlag::Print,
                 file: None,
                 limit: None,
-                pointer: None,
             },
         }
     }
@@ -114,13 +107,12 @@ impl History {
     }
     pub fn append(&mut self, state: &mut SharedState) -> Result<()> {
         if let Some(file) = &mut self.file {
-            let guard = state.lock().unwrap();
-            let mut pointer = self.pointer.unwrap_or(0);
+            let mut guard = state.lock().unwrap();
+            let pointer = guard.history_pointer;
             for line in &guard.history[pointer..] {
-                pointer += 1;
                 writeln!(file, "{}", line)?;
             }
-            self.pointer = Some(pointer);
+            guard.history_pointer = guard.history.len();
         }
         Ok(())
     }

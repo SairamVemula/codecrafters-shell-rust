@@ -87,7 +87,8 @@ pub struct AppState {
     pub completions: CompletionStore,
     pub jobs: VecDeque<Job>,
     pub next_job_id: BTreeSet<usize>,
-    pub history: Vec<String>
+    pub history: Vec<String>,
+    pub history_pointer: usize
 }
 
 pub type SharedState = Arc<Mutex<AppState>>;
@@ -99,6 +100,7 @@ impl AppState {
             jobs: VecDeque::new(),
             next_job_id: BTreeSet::new(),
             history: vec![],
+            history_pointer: 0
         }))
     }
 }
