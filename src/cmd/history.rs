@@ -18,6 +18,7 @@ pub struct History {
     pub flag: HistoryFlag,
     pub file: Option<File>,
     pub limit: Option<usize>,
+    pointer: Option<usize>,
 }
 
 impl History {
@@ -34,6 +35,7 @@ impl History {
             flag: HistoryFlag::Append,
             file: Some(file),
             limit: None,
+            pointer: None,
         })
     }
 
@@ -47,8 +49,9 @@ impl History {
                         .open(args.get(1).unwrap())
                         .ok(),
                     limit: None,
+                    pointer: None,
                 },
-                "-w" | "-a" => Self {
+                "-w" => Self {
                     flag: HistoryFlag::Write,
                     file: OpenOptions::new()
                         .create(true)
@@ -57,6 +60,18 @@ impl History {
                         .open(args.get(1).unwrap())
                         .ok(),
                     limit: None,
+                    pointer: None,
+                },
+                "-a" => Self {
+                    flag: HistoryFlag::Append,
+                    file: OpenOptions::new()
+                        .create(true)
+                        .write(true)
+                        .append(true)
+                        .open(args.get(1).unwrap())
+                        .ok(),
+                    limit: None,
+                    pointer: None,
                 },
                 _ => {
                     let limit = args.get(0).and_then(|s| s.parse::<usize>().ok());
@@ -65,6 +80,7 @@ impl History {
                         flag: HistoryFlag::Print,
                         file: None,
                         limit,
+                        pointer: None,
                     }
                 }
             },
@@ -72,6 +88,7 @@ impl History {
                 flag: HistoryFlag::Print,
                 file: None,
                 limit: None,
+                pointer: None,
             },
         }
     }
@@ -96,7 +113,15 @@ impl History {
         Ok(())
     }
     pub fn append(&mut self, state: &mut SharedState) -> Result<()> {
-        self.write(state)?;
+        if let Some(file) = &mut self.file {
+            let guard = state.lock().unwrap();
+            let mut pointer = self.pointer.unwrap_or(0);
+            for line in &guard.history[pointer..] {
+                pointer += 1;
+                writeln!(file, "{}", line)?;
+            }
+            self.pointer = Some(pointer);
+        }
         Ok(())
     }
     pub fn read(&mut self, state: &mut SharedState) -> Result<()> {
