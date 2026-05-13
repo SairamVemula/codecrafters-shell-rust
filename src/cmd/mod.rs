@@ -132,7 +132,7 @@ pub fn dispatch(ctx: &mut Context) -> Result<()> {
     match BuiltInCommand::from(ctx.name.as_str()) {
         BuiltInCommand::Exit => {
             if let Some(mut history) = History::new() {
-                let _ = history.write(&mut ctx.state);
+                let _ = history.append(&mut ctx.state);
             }
             process::exit(0);
         }

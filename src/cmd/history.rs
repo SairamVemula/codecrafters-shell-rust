@@ -2,6 +2,7 @@ use std::{
     env,
     fs::{File, OpenOptions},
     io::{BufRead, BufReader, Write},
+    ptr::read,
 };
 
 use anyhow::{Ok, Result};
@@ -25,6 +26,7 @@ impl History {
         let path = env::var("HISTFILE").ok()?;
         let file = OpenOptions::new()
             .create(true)
+            .read(true)
             .write(true)
             .append(true)
             .open(path)
@@ -124,6 +126,8 @@ impl History {
 
             let mut guard = state.lock().unwrap();
             guard.history.extend(history);
+            guard.history_pointer = guard.history.len();
+            println!("p = {}", guard.history_pointer);
         }
         Ok(())
     }
