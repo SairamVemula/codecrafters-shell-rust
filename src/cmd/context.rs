@@ -116,15 +116,13 @@ pub struct Context {
 }
 
 impl Context {
-    pub fn new(state: SharedState, args: Option<Vec<String>>) -> Result<Self> {
+    pub fn new(mut state: SharedState, args: Option<Vec<String>>) -> Result<Self> {
         let (mut parsed, recursive) = match args {
             Some(args) => (args, true),
             None => {
                 let input = {
                     let mut term = Term::stdout();
-                    let mut guard = state.lock().map_err(|_| anyhow!("Lock poisoned"))?;
-                    let input = utils::get_user_input(&mut term, &mut guard.completions)?;
-                    guard.history.push(input.clone());
+                    let input = utils::get_user_input(&mut term, &mut state)?;
                     input
                 };
                 (utils::parse_args(input.trim()), false)

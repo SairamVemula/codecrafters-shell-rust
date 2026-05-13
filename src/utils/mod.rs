@@ -9,7 +9,7 @@ use std::{
 use anyhow::{Context, Result};
 use console::Term;
 
-use crate::cmd::context::{Redirection, RedirectionType};
+use crate::cmd::context::{Redirection, RedirectionType, SharedState};
 use crate::cmd::{BuiltInCommand, complete::Complete, context::CompletionStore};
 
 #[cfg(windows)]
@@ -248,9 +248,10 @@ pub fn parse_pipes(args: &mut Vec<String>) -> (Vec<Vec<String>>, Vec<Redirection
     (pipes, redirections)
 }
 
-pub fn get_user_input(mut term: &mut Term, completions: &mut CompletionStore) -> Result<String> {
+pub fn get_user_input(mut term: &mut Term, state: &mut SharedState) -> Result<String> {
     let mut input = String::new();
     let mut bell_rang = false;
+    let mut cursor = None;
     loop {
         let key = term.read_key().context("Reading each key")?;
         match key {
@@ -261,13 +262,34 @@ pub fn get_user_input(mut term: &mut Term, completions: &mut CompletionStore) ->
                 print!("$ {input}")
             }
             console::Key::Tab => {
-                bell_rang = handle_tab(&mut input, &mut term, bell_rang, completions)?;
+                let mut guard = state.lock().unwrap();
+                bell_rang = handle_tab(&mut input, &mut term, bell_rang, &mut guard.completions)?;
             }
             console::Key::Char(ch) => {
                 input.push(ch);
                 print!("{ch}");
             }
             console::Key::CtrlC => std::process::exit(0),
+            console::Key::ArrowUp => {
+                let guard = state.lock().unwrap();
+                let len = guard.history.len();
+                let index = cursor.unwrap_or(len - 1);
+                term.clear_line()?;
+                input.clear();
+                input.push_str(guard.history.get(index).unwrap());
+                cursor = Some((len + (index - 1)) % len);
+                print!("{input}")
+            }
+            console::Key::ArrowDown => {
+                let guard = state.lock().unwrap();
+                let len = guard.history.len();
+                let index = cursor.unwrap_or(len - 1);
+                term.clear_line()?;
+                input.clear();
+                input.push_str(guard.history.get(index).unwrap());
+                cursor = Some((index + 1) % len);
+                print!("{input}")
+            }
             _ => {}
         };
         io::stdout().flush()?;
