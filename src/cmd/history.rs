@@ -38,43 +38,52 @@ impl History {
     }
 
     pub fn parse(args: &Vec<String>) -> Self {
-        match args[0].as_str() {
-            "-r" => Self {
-                flag: HistoryFlag::Read,
-                file: OpenOptions::new()
-                    .read(true)
-                    .open(args.get(1).unwrap())
-                    .ok(),
-                limit: None,
-            },
-            "-w" => Self {
-                flag: HistoryFlag::Write,
-                file: OpenOptions::new()
-                    .create(true)
-                    .write(true)
-                    .open(args.get(1).unwrap())
-                    .ok(),
-                limit: None,
-            },
-            "-a" => Self {
-                flag: HistoryFlag::Append,
-                file: OpenOptions::new()
-                    .create(true)
-                    .write(true)
-                    .truncate(true)
-                    .open(args.get(1).unwrap())
-                    .ok(),
-                limit: None,
-            },
-            _ => {
-                let limit = args.get(0).and_then(|s| s.parse::<usize>().ok());
+        match args.get(0) {
+            Some(first) => match first.as_str() {
+                "-r" => Self {
+                    flag: HistoryFlag::Read,
+                    file: OpenOptions::new()
+                        .read(true)
+                        .open(args.get(1).unwrap())
+                        .ok(),
+                    limit: None,
+                },
+                "-w" => Self {
+                    flag: HistoryFlag::Write,
+                    file: OpenOptions::new()
+                        .create(true)
+                        .write(true)
+                        .truncate(true)
+                        .open(args.get(1).unwrap())
+                        .ok(),
+                    limit: None,
+                },
+                "-a" => Self {
+                    flag: HistoryFlag::Append,
+                    file: OpenOptions::new()
+                        .create(true)
+                        .write(true)
+                        .append(true)
+                        .truncate(true)
+                        .open(args.get(1).unwrap())
+                        .ok(),
+                    limit: None,
+                },
+                _ => {
+                    let limit = args.get(0).and_then(|s| s.parse::<usize>().ok());
 
-                Self {
-                    flag: HistoryFlag::Print,
-                    file: None,
-                    limit,
+                    Self {
+                        flag: HistoryFlag::Print,
+                        file: None,
+                        limit,
+                    }
                 }
-            }
+            },
+            None => Self {
+                flag: HistoryFlag::Print,
+                file: None,
+                limit: None,
+            },
         }
     }
 
