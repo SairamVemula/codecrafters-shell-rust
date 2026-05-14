@@ -1,4 +1,4 @@
-use anyhow::{Result, anyhow};
+use anyhow::Result;
 
 use crate::cmd::context::{Context, SharedState};
 
@@ -87,4 +87,63 @@ fn is_valid_variable_name(name: &str) -> bool {
     }
 
     chars.all(|c| c.is_alphanumeric() || c == '_')
+}
+
+pub fn replace_variables(args: Vec<String>, state: &SharedState) -> Vec<String> {
+    args.iter()
+        .map(|a| find_variable_and_replace(a, state))
+        .collect()
+}
+fn find_variable_and_replace(arg: &String, state: &SharedState) -> String {
+    let mut result = String::new();
+
+    if arg.contains("${") {
+        let mut var_name = String::new();
+        let mut chars = arg.chars();
+        let mut var_started = false;
+        while let Some(ch) = chars.next() {
+            // print!("{ch}");
+            match ch {
+                '$' => {
+                    chars.next();
+                    var_started = true;
+                }
+                '}' => {
+                    let value = lookup_value(std::mem::take(&mut var_name), state);
+                    result.push_str(&value);
+                    var_started = false;
+                }
+                _ => {
+                    if var_started {
+                        var_name.push(ch);
+                    } else {
+                        result.push(ch);
+                    }
+                }
+            }
+        }
+        return result;
+    } else if arg.starts_with('$') {
+        let var_name: String = arg[1..]
+            .chars()
+            .take_while(|c| c.is_alphanumeric() || c == &'_')
+            .collect();
+        let remaining: String = arg[1..].chars().skip(var_name.len()).collect();
+
+        result.push_str(&lookup_value(var_name, state));
+        result.push_str(&remaining);
+        return result;
+    }
+
+    arg.to_string()
+}
+
+fn lookup_value(name: String, state: &SharedState) -> String {
+    state
+        .lock()
+        .unwrap()
+        .variables
+        .get(&name)
+        .unwrap_or(&String::new())
+        .to_string()
 }

@@ -2,7 +2,6 @@ use std::{
     env,
     fs::{File, OpenOptions},
     io::{BufRead, BufReader, Write},
-    ptr::read,
 };
 
 use anyhow::{Ok, Result};
