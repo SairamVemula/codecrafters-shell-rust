@@ -4,6 +4,7 @@ use std::process::{self, Stdio};
 
 use crate::cmd::complete::Complete;
 use crate::cmd::context::{Context, OutputDestination};
+use crate::cmd::declare::Declare;
 use crate::cmd::history::History;
 use crate::cmd::jobs::Job;
 use crate::utils;
@@ -15,6 +16,7 @@ pub mod echo;
 pub mod history;
 pub mod jobs;
 pub mod pwd;
+pub mod declare;
 
 pub enum BuiltInCommand {
     Exit,
@@ -25,6 +27,7 @@ pub enum BuiltInCommand {
     Complete,
     Jobs,
     History,
+    Declare,
     Unknown,
 }
 
@@ -39,6 +42,7 @@ impl From<&str> for BuiltInCommand {
             "complete" => Self::Complete,
             "jobs" => Self::Jobs,
             "history" => Self::History,
+            "declare" => Self::Declare,
             _ => Self::Unknown,
         }
     }
@@ -46,7 +50,7 @@ impl From<&str> for BuiltInCommand {
 
 impl BuiltInCommand {
     const ALL: &'static [&'static str] = &[
-        "exit", "echo", "type", "pwd", "cd", "complete", "jobs", "history",
+        "exit", "echo", "type", "pwd", "cd", "complete", "jobs", "history", "declare"
     ];
 
     pub fn matches(prefix: &str) -> BTreeSet<String> {
@@ -143,6 +147,7 @@ pub fn dispatch(ctx: &mut Context) -> Result<()> {
         BuiltInCommand::Complete => Complete::handle(ctx),
         BuiltInCommand::Jobs => Job::handle(ctx),
         BuiltInCommand::History => History::handle(ctx),
+        BuiltInCommand::Declare => Declare::handle(ctx),
         BuiltInCommand::Unknown => handle_run(ctx),
     }
 }
