@@ -8,6 +8,7 @@ use std::sync::{Arc, Mutex};
 use anyhow::{Result, anyhow};
 use console::Term;
 
+use crate::cmd::declare;
 use crate::cmd::jobs::Job;
 use crate::utils::{self, unparse_args};
 
@@ -102,7 +103,7 @@ impl AppState {
             next_job_id: BTreeSet::new(),
             history: vec![],
             history_pointer: 0,
-            variables: HashMap::new()
+            variables: HashMap::new(),
         }))
     }
 }
@@ -129,7 +130,9 @@ impl Context {
                     let input = utils::get_user_input(&mut term, &mut state)?;
                     input
                 };
-                (utils::parse_args(input.trim()), false)
+                let args = utils::parse_args(input.trim());
+                let args = declare::replace_variables(args.clone(), &state);
+                (args, false)
             }
         };
 
