@@ -123,15 +123,27 @@ fn find_variable_and_replace(arg: &String, state: &SharedState) -> String {
             }
         }
         return result;
-    } else if arg.starts_with('$') {
-        let var_name: String = arg[1..]
-            .chars()
-            .take_while(|c| c.is_alphanumeric() || c == &'_')
-            .collect();
-        let remaining: String = arg[1..].chars().skip(var_name.len()).collect();
-
-        result.push_str(&lookup_value(var_name, state));
-        result.push_str(&remaining);
+    } else if arg.contains('$') {
+        let mut var_name = String::new();
+        let mut chars = arg.chars();
+        let mut var_started = false;
+        while let Some(ch) = chars.next() {
+            // print!("{ch}");
+            match ch {
+                '$' => {
+                    var_started = true;
+                }
+                _ => {
+                    if var_started {
+                        var_name.push(ch);
+                    } else {
+                        result.push(ch);
+                    }
+                }
+            }
+        }
+        let value = lookup_value(std::mem::take(&mut var_name), state);
+        result.push_str(&value);
         return result;
     }
 
