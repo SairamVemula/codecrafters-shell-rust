@@ -92,6 +92,7 @@ fn is_valid_variable_name(name: &str) -> bool {
 pub fn replace_variables(args: Vec<String>, state: &SharedState) -> Vec<String> {
     args.iter()
         .map(|a| find_variable_and_replace(a, state))
+        .filter(|a| !a.is_empty())
         .collect()
 }
 fn find_variable_and_replace(arg: &String, state: &SharedState) -> String {
